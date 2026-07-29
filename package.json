@@ -1,0 +1,23 @@
+{
+  "name": "oracle-tuner",
+  "version": "1.0.0",
+  "description": "Oracle SQL Tuning Workbench - JDBC bridge + Open Grid UI",
+  "private": true,
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "build:java": "node java/build.js",
+    "fetch-driver": "node tools/fetch-driver.js",
+    "install-demo": "node tools/install-demo.js",
+    "test": "node test/run-tests.js"
+  },
+  "keywords": ["oracle", "sql", "tuning", "jdbc", "open-grid"],
+  "license": "MIT",
+  "dependencies": {
+    "open-grid": "^1.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,337 @@
+'use strict';
+/**
+ * 환경설정 — JDK/JRE 경로, JDBC 드라이버(jar) 경로, 실행 기본값, 저장 위치.
+ *
+ * 설정은 `config/settings.json` 한 파일에 담는다. 파일이 없거나 일부 키가 비어 있어도
+ * 기본값으로 채워 항상 동작하게 만든다(설정 실수로 프로그램이 안 뜨는 상황을 만들지 않는다).
+ *
+ * 자바 경로 해석 순서:  설정값 → JAVA_HOME → PATH
+ * 드라이버 경로 해석:   설정값 → java/lib/*.jar 자동탐색 → (없으면 오류 안내)
+ */
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync, spawnSync } = require('child_process');
+const P = require('./paths');
+
+const IS_WIN = process.platform === 'win32';
+const EXE = IS_WIN ? '.exe' : '';
+
+/** 기본 설정. settings.json 은 이 위에 덮어써진다. */
+const DEFAULTS = {
+  java: {
+    /** JDK 또는 JRE 홈 디렉터리. 비우면 JAVA_HOME → PATH 순으로 찾는다. */
+    home: '',
+    /** JVM 추가 옵션 */
+    options: ['-Xmx768m', '-Dfile.encoding=UTF-8', '-Duser.language=ko'],
+    /** 브리지 자동 빌드(javac 필요). JRE 만 있으면 false 로 두고 미리 빌드된 out/ 을 쓴다. */
+    autoBuild: true
+  },
+  jdbc: {
+    /** ojdbc jar 절대경로 목록. 비우면 java/lib 를 자동 탐색한다. */
+    driverPaths: [],
+    autoDiscover: true,
+    /** 접속 기본값 */
+    loginTimeoutSec: 15
+  },
+  server: {
+    host: '127.0.0.1',
+    port: 7070,
+    openBrowser: true,
+    /** API 요청 본문 최대 크기(MB). 1만 줄 넘는 초대형 SQL 대비. */
+    maxRequestMb: 64
+  },
+  execution: {
+    maxRows: 5000,
+    fetchSize: 1000,
+    timeoutSec: 60,
+    benchRuns: 3,
+    benchWarmup: 1,
+    /** DML/DDL 을 실행하면 자동 롤백 (튜닝 도구의 안전 기본값) */
+    safeMode: true,
+    /** 실행계획 자동 조회 */
+    autoExplain: true
+  },
+  ui: {
+    theme: 'default',
+    skin: 'rounded',
+    density: 'normal',
+    locale: 'ko',
+    fontSize: 13
+  }
+};
+
+function deepMerge(base, patch) {
+  if (patch === null || patch === undefined) return base;
+  if (Array.isArray(base) || Array.isArray(patch)) return patch !== undefined ? patch : base;
+  if (typeof base !== 'object' || typeof patch !== 'object') return patch !== undefined ? patch : base;
+  const out = { ...base };
+  for (const k of Object.keys(patch)) {
+    out[k] = (k in base) ? deepMerge(base[k], patch[k]) : patch[k];
+  }
+  return out;
+}
+
+let cache = null;
+
+/**
+ * BOM 을 떼고 JSON 을 읽는다.
+ *
+ * Windows 에서는 메모장·PowerShell 리다이렉트·`Set-Content -Encoding utf8` 가 파일 앞에
+ * BOM(U+FEFF)을 붙인다. 그대로 JSON.parse 하면 "Unexpected token" 으로 죽는다.
+ * 사용자가 설정 파일을 손으로 고치는 것은 정상적인 사용이므로 여기서 흡수한다.
+ */
+function readJsonFile(file) {
+  const raw = fs.readFileSync(file, 'utf8');
+  return JSON.parse(raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw);
+}
+
+/** 설정을 읽는다(캐시). 파일이 깨져 있으면 기본값으로 진행하고 경고를 남긴다. */
+function load(force) {
+  if (cache && !force) return cache;
+  let user = {};
+  let parseError = null;
+  try {
+    if (fs.existsSync(P.settingsFile)) {
+      user = readJsonFile(P.settingsFile);
+    }
+  } catch (e) {
+    parseError = e.message;
+  }
+  cache = deepMerge(DEFAULTS, user);
+  cache._parseError = parseError;
+  return cache;
+}
+
+/** 설정 일부를 병합 저장한다(원자적 쓰기). */
+function save(patch) {
+  const cur = load(true);
+  const next = deepMerge(cur, patch || {});
+  delete next._parseError;
+  P.ensureDirs();
+  const tmp = P.settingsFile + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8');
+  fs.renameSync(tmp, P.settingsFile);
+  cache = null;
+  return load(true);
+}
+
+function defaults() {
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+
+// ── 자바 경로 해석 ──────────────────────────────────────────────────────────
+
+function binIn(home, name) {
+  if (!home) return null;
+  const p = path.join(home, 'bin', name + EXE);
+  return fs.existsSync(p) ? p : null;
+}
+
+function fromPath(name) {
+  const which = IS_WIN ? 'where' : 'which';
+  try {
+    const out = execFileSync(which, [name], { encoding: 'utf8', timeout: 5000 });
+    const first = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)[0];
+    return first && fs.existsSync(first) ? first : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * 실행에 쓸 java/javac 경로를 정한다.
+ * @returns {{java:string|null, javac:string|null, home:string|null, source:string, version:string|null, error:string|null}}
+ */
+function resolveJava(cfg) {
+  const c = cfg || load();
+  const candidates = [];
+  if (c.java && c.java.home) candidates.push({ home: c.java.home, source: 'settings.java.home' });
+  if (process.env.JAVA_HOME) candidates.push({ home: process.env.JAVA_HOME, source: 'JAVA_HOME' });
+
+  for (const cand of candidates) {
+    const home = String(cand.home).replace(/[\\/]+$/, '');
+    const java = binIn(home, 'java');
+    if (java) {
+      return { java, javac: binIn(home, 'javac'), home, source: cand.source, version: javaVersion(java), error: null };
+    }
+  }
+  const java = fromPath('java');
+  if (java) {
+    const home = path.resolve(path.dirname(java), '..');
+    return { java, javac: binIn(home, 'javac') || fromPath('javac'), home, source: 'PATH', version: javaVersion(java), error: null };
+  }
+  return {
+    java: null, javac: null, home: null, source: 'none', version: null,
+    error: 'java 실행 파일을 찾지 못했습니다. 설정에서 JDK/JRE 홈 경로를 지정하세요.'
+  };
+}
+
+/**
+ * `java -version` 의 첫 줄.
+ * 주의: java 는 버전을 <b>stderr</b> 로 출력한다. execFileSync 는 stdout 만 돌려주므로
+ * 두 스트림을 모두 받는 spawnSync 를 쓴다(이 함정 때문에 버전이 빈칸으로 나오는 일이 흔하다).
+ */
+function javaVersion(javaBin) {
+  try {
+    const r = spawnSync(javaBin, ['-version'], { encoding: 'utf8', timeout: 8000 });
+    const out = `${r.stderr || ''}${r.stdout || ''}`.trim();
+    return out ? out.split(/\r?\n/)[0].trim() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 흔한 위치에서 JDK/JRE 후보를 찾아 설정 화면에 제시한다. */
+function discoverJavaHomes() {
+  const found = [];
+  const seen = new Set();
+  const add = (home, source) => {
+    if (!home) return;
+    const norm = path.resolve(home);
+    if (seen.has(norm.toLowerCase())) return;
+    if (!binIn(norm, 'java')) return;
+    seen.add(norm.toLowerCase());
+    found.push({ home: norm, source, hasJavac: !!binIn(norm, 'javac'), version: javaVersion(binIn(norm, 'java')) });
+  };
+
+  if (process.env.JAVA_HOME) add(process.env.JAVA_HOME, 'JAVA_HOME');
+  const j = fromPath('java');
+  if (j) add(path.resolve(path.dirname(j), '..'), 'PATH');
+
+  const roots = IS_WIN
+    ? ['C:\\Program Files\\Java', 'C:\\Program Files\\Eclipse Adoptium', 'C:\\Program Files\\Microsoft',
+       'C:\\Program Files\\Amazon Corretto', 'C:\\Program Files\\Zulu', 'C:\\Program Files (x86)\\Java']
+    : ['/usr/lib/jvm', '/Library/Java/JavaVirtualMachines', '/opt/java'];
+
+  for (const root of roots) {
+    try {
+      if (!fs.existsSync(root)) continue;
+      for (const name of fs.readdirSync(root)) {
+        const home = path.join(root, name);
+        add(home, root);
+        // macOS 는 Contents/Home 한 단계 더
+        add(path.join(home, 'Contents', 'Home'), root);
+      }
+    } catch (e) { /* 접근 불가 디렉터리는 건너뛴다 */ }
+  }
+  return found;
+}
+
+// ── JDBC 드라이버 해석 ──────────────────────────────────────────────────────
+
+/** 설정에 지정된 드라이버 jar + 자동탐색 결과를 합쳐 돌려준다. */
+function resolveDriverJars(cfg) {
+  const c = cfg || load();
+  const out = [];
+  const seen = new Set();
+  const add = (p) => {
+    if (!p) return;
+    const abs = path.isAbsolute(p) ? p : path.join(P.root, p);
+    const key = abs.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ path: abs, exists: fs.existsSync(abs) });
+  };
+  for (const p of (c.jdbc.driverPaths || [])) add(p);
+  if (c.jdbc.autoDiscover !== false) {
+    for (const p of discoverDriverJars()) add(p);
+  }
+  return out;
+}
+
+/** java/lib 및 흔한 위치에서 ojdbc jar 를 찾는다. */
+function discoverDriverJars() {
+  const found = [];
+  const scan = (dir) => {
+    try {
+      if (!fs.existsSync(dir)) return;
+      for (const name of fs.readdirSync(dir)) {
+        if (/^(ojdbc\d*|orai18n|oraclepki|osdt_\w+|ucp\d*|xdb\d*)\.jar$/i.test(name)) {
+          found.push(path.join(dir, name));
+        }
+      }
+    } catch (e) { /* 무시 */ }
+  };
+  scan(P.javaLib);
+  scan(path.join(P.root, 'lib'));
+  if (process.env.ORACLE_HOME) scan(path.join(process.env.ORACLE_HOME, 'jdbc', 'lib'));
+  return found;
+}
+
+/** 브리지에 넘길 클래스패스 문자열(존재하는 jar 만). */
+function driverClasspath(cfg) {
+  return resolveDriverJars(cfg).filter((j) => j.exists).map((j) => j.path);
+}
+
+// ── 진단 ───────────────────────────────────────────────────────────────────
+
+/** 설정 화면에 띄울 상태 진단. 무엇이 준비됐고 무엇이 빠졌는지 그대로 드러낸다. */
+function diagnose() {
+  const cfg = load(true);
+  const java = resolveJava(cfg);
+  const jars = resolveDriverJars(cfg);
+  const usable = jars.filter((j) => j.exists);
+  const items = [];
+
+  items.push({
+    key: 'java',
+    label: 'Java 런타임',
+    ok: !!java.java,
+    detail: java.java ? `${java.version || ''} (${java.source})\n${java.java}` : java.error,
+    hint: java.java ? null : '설정 > Java 홈 경로에 JDK 또는 JRE 디렉터리를 지정하세요.'
+  });
+  items.push({
+    key: 'javac',
+    label: 'Java 컴파일러(javac)',
+    ok: !!java.javac,
+    detail: java.javac || '없음 — JRE 만 설치된 환경으로 보입니다.',
+    hint: java.javac ? null : 'JRE 만 있으면 브리지를 빌드할 수 없습니다. 이미 빌드된 java/out 이 있으면 그대로 동작합니다.',
+    severity: java.javac ? 'ok' : 'warn'
+  });
+  items.push({
+    key: 'driver',
+    label: 'Oracle JDBC 드라이버',
+    ok: usable.length > 0,
+    detail: usable.length > 0
+      ? usable.map((j) => j.path).join('\n')
+      : 'ojdbc jar 를 찾지 못했습니다.',
+    hint: usable.length > 0 ? null
+      : 'java/lib 폴더에 ojdbc11.jar(또는 ojdbc8.jar)를 넣거나, 설정에서 경로를 직접 지정하세요. `npm run fetch-driver` 로 내려받을 수도 있습니다.'
+  });
+  const built = fs.existsSync(path.join(P.javaOut, 'kr', 'foxnail', 'otuner', 'Bridge.class'));
+  items.push({
+    key: 'bridge',
+    label: 'JDBC 브리지 빌드',
+    ok: built,
+    detail: built ? P.javaOut : '아직 빌드되지 않았습니다.',
+    hint: built ? null : '`npm run build:java` 를 실행하거나 서버를 재시작하면 자동으로 빌드합니다.'
+  });
+  if (cfg._parseError) {
+    items.push({
+      key: 'settings',
+      label: 'settings.json',
+      ok: false,
+      detail: `설정 파일을 읽지 못했습니다: ${cfg._parseError}`,
+      hint: '기본값으로 동작 중입니다. 파일을 고치거나 삭제하세요.'
+    });
+  }
+  return {
+    ok: items.every((i) => i.ok || i.severity === 'warn'),
+    items,
+    java,
+    jars,
+    platform: `${os.platform()} ${os.release()}`,
+    node: process.version,
+    settingsFile: P.settingsFile
+  };
+}
+
+module.exports = {
+  readJsonFile,
+  load, save, defaults, DEFAULTS,
+  resolveJava, discoverJavaHomes,
+  resolveDriverJars, discoverDriverJars, driverClasspath,
+  diagnose, deepMerge
+};

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oracle Tuner — SQL 튜닝 워크벤치</title>
+
+<!-- Open Grid 스타일 (npm 패키지 dist 를 그대로 서빙) -->
+<link rel="stylesheet" href="/vendor/open-grid/open-grid-base.css">
+<link rel="stylesheet" href="/vendor/open-grid/open-grid-themes.css">
+<link rel="stylesheet" href="/vendor/open-grid/open-grid-skins.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">OT</span>
+    <span class="brand-name">Oracle&nbsp;Tuner</span>
+    <span class="brand-sub" data-i18n="app.subtitle">SQL 튜닝 워크벤치</span>
+  </div>
+
+  <div class="conn-area">
+    <button id="btn-connect" class="btn btn-primary" data-i18n="top.connect" data-i18n-title="top.connectTip">접속</button>
+    <span id="conn-status" class="conn-status conn-off" data-i18n="top.notConnected">미접속</span>
+    <span id="cap-badges" class="cap-badges"></span>
+  </div>
+
+  <div class="topbar-right">
+    <label class="inline-field" data-i18n-title="top.language">
+      <span data-i18n="top.language">언어</span>
+      <select id="sel-lang">
+        <option value="ko">한국어</option>
+        <option value="en">English</option>
+        <option value="ja">日本語</option>
+        <option value="zh">中文</option>
+      </select>
+    </label>
+    <label class="inline-field" data-i18n-title="top.theme">
+      <span data-i18n="top.theme">테마</span>
+      <select id="sel-theme">
+        <option value="default">default</option>
+        <option value="modern">modern</option>
+        <option value="slate">slate</option>
+        <option value="ocean">ocean</option>
+        <option value="forest">forest</option>
+        <option value="indigo">indigo</option>
+        <option value="executive">executive</option>
+        <option value="dark">dark</option>
+      </select>
+    </label>
+    <button id="btn-help" class="btn btn-ghost" data-icon="help" data-i18n="top.help" data-i18n-title="top.helpTip">도움말</button>
+  </div>
+</header>
+
+<nav class="railbar">
+  <button class="rail-tab is-active" data-view="sqls" data-i18n="nav.sqls">SQL 목록</button>
+  <button class="rail-tab" data-view="workbench" data-i18n="nav.workbench">워크벤치</button>
+  <button class="rail-tab" data-view="schema" data-i18n="nav.schema">스키마</button>
+  <button class="rail-tab" data-view="history" data-i18n="nav.history">튜닝 이력</button>
+  <button class="rail-tab" data-view="settings" data-i18n="nav.settings">설정</button>
+  <span class="rail-spacer"></span>
+  <span id="rail-msg" class="rail-msg"></span>
+</nav>
+
+<main id="views">
+
+  <!-- ─────────────────────────── SQL 목록 (랜딩, 오브젝트 브라우저) ─────────────────────────── -->
+  <section class="view is-active" data-view="sqls">
+    <div class="schema-layout">
+      <div class="schema-left sqls-left">
+        <div class="rpanel-bar sqls-toolbar">
+          <button class="btn btn-sm btn-icon btn-primary" id="btn-sql-new" data-icon="add" data-i18n-title="sqls.newTip" title="신규 SQL"></button>
+          <button class="btn btn-sm btn-icon" id="btn-sql-del" data-icon="delete" data-i18n-title="lib.delete" title="삭제" disabled></button>
+          <button class="btn btn-sm btn-icon" id="btn-sql-save" data-icon="save" data-i18n-title="sqls.saveCurrent" title="현재 SQL 저장"></button>
+          <button class="btn btn-sm" id="btn-sql-demo" data-icon="import" data-i18n="sqls.loadDemo" data-i18n-title="sqls.loadDemoTip">샘플 예제</button>
+          <button class="btn btn-sm btn-accent" id="btn-demo-setup" data-icon="table" data-i18n="sqls.demoSetup" data-i18n-title="sqls.demoSetupTip">데모 데이터 생성</button>
+          <input id="sqls-search" class="text-input" data-i18n-ph="lib.search" placeholder="검색…">
+        </div>
+        <div class="rpanel-bar sqls-scope-bar">
+          <span id="sqls-scope" class="lib-scope"></span>
+          <span class="rpanel-bar-right"><span id="sqls-count" class="muted"></span></span>
+        </div>
+        <div class="sqls-tree" id="sqls-tree"></div>
+      </div>
+      <div class="schema-right sqls-right">
+        <div class="rpanel-bar">
+          <span id="sqls-detail-title" class="muted" data-i18n="sqls.selectHint">왼쪽 목록에서 SQL 을 선택하세요.</span>
+          <span class="rpanel-bar-right">
+            <button class="btn btn-sm btn-icon" id="btn-sql-copy" data-icon="copy" data-i18n-title="wb.copyTip" title="복사" disabled></button>
+            <button class="btn btn-sm" id="btn-sql-open-after" data-i18n="sqls.openAfter" disabled>튜닝 후로 열기</button>
+            <button class="btn btn-sm btn-primary" id="btn-sql-open" data-i18n="sqls.openBefore" disabled>워크벤치로 열기</button>
+          </span>
+        </div>
+        <div class="sqls-preview" id="sqls-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 워크벤치 ─────────────────────────── -->
+  <section class="view" data-view="workbench">
+   <div class="wb-layout">
+    <aside class="wb-dock" id="wb-dock">
+      <div class="wb-dock-head">
+        <span class="wb-dock-title" data-i18n="nav.sqls">SQL 목록</span>
+        <button class="btn btn-ghost btn-sm btn-icon" id="btn-wb-dock-save" data-icon="save" data-i18n-title="sqls.saveCurrent" title="현재 SQL 저장"></button>
+        <button class="btn btn-ghost btn-sm" id="btn-wb-dock-toggle" data-i18n-title="wb.dockHide" title="감추기">«</button>
+      </div>
+      <div class="wb-dock-tree" id="wb-dock-tree"></div>
+    </aside>
+    <button class="wb-dock-reveal" id="btn-wb-dock-reveal" data-i18n-title="wb.dockShow" title="SQL 목록 보기" hidden>»</button>
+    <div class="split-v">
+
+      <div class="pane pane-editors" id="pane-editors">
+        <div class="editor-col">
+          <div class="editor-head">
+            <span class="editor-title" data-i18n="wb.beforeTitle">튜닝 전 SQL</span>
+            <span class="doc-badge" id="doc-before"></span>
+            <span class="editor-meta" id="meta-before"></span>
+            <div class="editor-tools">
+              <button class="btn btn-sm btn-primary" data-act="run" data-icon="play" data-side="before" data-i18n="wb.run" data-i18n-title="wb.runTip">실행</button>
+              <button class="btn btn-sm" data-act="explain" data-icon="table" data-side="before" data-i18n="wb.explain" data-i18n-title="wb.explainTip">실행계획</button>
+              <button class="btn btn-sm" data-act="analyze" data-icon="search" data-side="before" data-i18n="wb.analyze" data-i18n-title="wb.analyzeTip">진단</button>
+              <button class="btn btn-sm btn-accent" data-act="runScript" data-icon="play" data-side="before" data-i18n="wb.runScript" data-i18n-title="wb.runScriptTip">전체 실행</button>
+              <button class="btn btn-sm btn-ghost" data-act="format" data-icon="edit" data-side="before" data-i18n="wb.format" data-i18n-title="wb.formatTip">정렬</button>
+              <button class="btn btn-sm btn-ghost" data-act="expandStar" data-icon="expand" data-side="before" data-i18n="wb.expandStar" data-i18n-title="wb.expandStarTip">*펼치기</button>
+              <button class="btn btn-sm btn-ghost" data-act="library" data-icon="menu" data-side="before" data-i18n="wb.library" data-i18n-title="wb.libraryTip">SQL함</button>
+              <button class="btn btn-sm btn-ghost" data-act="copy" data-icon="copy" data-side="before" data-i18n="wb.copy" data-i18n-title="wb.copyTip">복사</button>
+            </div>
+          </div>
+          <div class="editor-host" id="editor-before"></div>
+        </div>
+
+        <div class="editor-col">
+          <div class="editor-head">
+            <span class="editor-title editor-title-after" data-i18n="wb.afterTitle">튜닝 후 SQL</span>
+            <span class="doc-badge" id="doc-after"></span>
+            <span class="editor-meta" id="meta-after"></span>
+            <div class="editor-tools">
+              <button class="btn btn-sm btn-primary" data-act="run" data-icon="play" data-side="after" data-i18n="wb.run">실행</button>
+              <button class="btn btn-sm" data-act="explain" data-icon="table" data-side="after" data-i18n="wb.explain">실행계획</button>
+              <button class="btn btn-sm" data-act="analyze" data-icon="search" data-side="after" data-i18n="wb.analyze">진단</button>
+              <button class="btn btn-sm btn-ghost" data-act="format" data-icon="edit" data-side="after" data-i18n="wb.format">정렬</button>
+              <button class="btn btn-sm btn-ghost" data-act="library" data-icon="menu" data-side="after" data-i18n="wb.library" data-i18n-title="wb.libraryTip">SQL함</button>
+              <button class="btn btn-sm btn-ghost" data-act="copy" data-icon="copy" data-side="after" data-i18n="wb.copy" data-i18n-title="wb.copyTip">복사</button>
+              <button class="btn btn-sm btn-ghost" data-act="hint" data-icon="formula" data-side="after" data-i18n="wb.hint" data-i18n-title="wb.hintTip">힌트</button>
+              <button class="btn btn-sm btn-accent" data-act="compare" data-icon="chart.bar" data-i18n="wb.compare" data-i18n-title="wb.compareTip">비교 검증</button>
+            </div>
+          </div>
+          <div class="editor-host" id="editor-after"></div>
+        </div>
+      </div>
+
+      <div class="splitter" id="splitter-v" title="드래그해서 높이 조절"></div>
+
+      <div class="pane pane-results">
+        <div class="result-tabs">
+          <button class="rtab is-active" data-tab="result" data-i18n="tab.result">결과</button>
+          <button class="rtab" data-tab="plan" data-i18n="tab.plan">실행계획</button>
+          <button class="rtab" data-tab="diag"><span data-i18n="tab.diag">진단</span> <span class="badge" id="badge-diag"></span></button>
+          <button class="rtab" data-tab="cands"><span data-i18n="tab.cands">튜닝 후보</span> <span class="badge" id="badge-cands"></span></button>
+          <button class="rtab" data-tab="verify" data-i18n="tab.verify">비교·검증</button>
+          <button class="rtab" data-tab="stats" data-i18n="tab.stats">계측</button>
+          <button class="rtab" data-tab="log" data-i18n="tab.log">메시지</button>
+          <span class="rtab-spacer"></span>
+          <button id="btn-save-tuning" class="btn btn-sm btn-accent" data-i18n="res.saveTuning" data-i18n-title="res.saveTuningTip">튜닝 저장</button>
+          <button id="btn-cancel-sql" class="btn btn-sm btn-danger" data-i18n="res.cancel" disabled>실행 취소</button>
+        </div>
+
+        <div class="rpanel is-active" data-tab="result">
+          <div class="rpanel-bar">
+            <span id="result-summary" class="muted" data-i18n="res.empty">SQL 을 실행하면 결과가 여기에 표시됩니다.</span>
+            <span class="rpanel-bar-right">
+              <button class="btn btn-sm btn-ghost" id="btn-copy-result" data-i18n="res.copy">결과 복사(TSV)</button>
+              <button class="btn btn-sm btn-ghost" id="btn-export-csv" data-i18n="res.exportCsv">CSV</button>
+              <button class="btn btn-sm btn-ghost" id="btn-export-xlsx" data-i18n="res.exportXlsx">Excel</button>
+            </span>
+          </div>
+          <div class="grid-host" id="grid-result"></div>
+        </div>
+
+        <div class="rpanel" data-tab="plan">
+          <div class="rpanel-bar">
+            <span id="plan-summary" class="muted" data-i18n="plan.empty">실행계획을 조회하면 여기에 표시됩니다.</span>
+            <span class="rpanel-bar-right">
+              <label class="inline-field"><span data-i18n="plan.target">대상</span>
+                <select id="plan-side">
+                  <option value="before" data-i18n="plan.before">튜닝 전</option>
+                  <option value="after" data-i18n="plan.after">튜닝 후</option>
+                </select>
+              </label>
+              <button class="btn btn-sm btn-ghost" id="btn-plan-cursor" data-i18n="plan.actual" data-i18n-title="plan.actualTip">실제계획</button>
+              <button class="btn btn-sm btn-ghost" id="btn-copy-plan" data-i18n="plan.copyText">계획 복사</button>
+            </span>
+          </div>
+          <div class="plan-split">
+            <div class="grid-host" id="grid-plan"></div>
+            <pre class="plan-text" id="plan-text"></pre>
+          </div>
+        </div>
+
+        <div class="rpanel" data-tab="diag">
+          <div class="rpanel-bar">
+            <span id="diag-summary" class="muted" data-i18n="diag.empty">진단을 실행하면 지적사항이 표시됩니다. 행을 펼치면 상세 설명과 조치 방법이 나옵니다.</span>
+          </div>
+          <div class="grid-host" id="grid-diag"></div>
+        </div>
+
+        <div class="rpanel" data-tab="cands">
+          <div class="rpanel-bar">
+            <button class="btn btn-sm" id="btn-gen-cands" data-i18n="cd.gen" data-i18n-title="cd.genTip">후보 생성</button>
+            <button class="btn btn-sm btn-accent" id="btn-run-tournament" data-i18n="cd.run" data-i18n-title="cd.runTip">토너먼트 실행</button>
+            <label class="inline-field"><span data-i18n="cd.runs">회전</span>
+              <input id="cd-runs" type="number" class="text-input" style="width:56px" min="1" max="20" value="3"></label>
+            <label class="inline-field"><span data-i18n="cd.warmup">워밍업</span>
+              <input id="cd-warmup" type="number" class="text-input" style="width:52px" min="0" max="5" value="1"></label>
+            <label class="inline-field"><span data-i18n="cd.max">최대 후보</span>
+              <input id="cd-max" type="number" class="text-input" style="width:56px" min="1" max="30" value="12"></label>
+            <label class="check" style="margin:0"><input type="checkbox" id="cd-exp" checked> <span data-i18n="cd.exp">실험적 후보 포함</span></label>
+            <span class="rpanel-bar-right"><span id="cd-summary" class="muted"></span></span>
+          </div>
+          <div class="cand-body" id="cand-body">
+            <p class="pad muted" data-i18n-html="cd.intro"></p>
+          </div>
+        </div>
+
+        <div class="rpanel" data-tab="verify">
+          <div id="verify-body" class="verify-body">
+            <p class="muted pad" data-i18n-html="verify.intro"></p>
+          </div>
+        </div>
+
+        <div class="rpanel" data-tab="stats">
+          <div class="rpanel-bar"><span class="muted" id="stats-summary" data-i18n="stats.empty">실행 시 수집된 세션 통계 증분입니다.</span></div>
+          <div class="grid-host" id="grid-stats"></div>
+        </div>
+
+        <div class="rpanel" data-tab="log">
+          <pre class="log-text" id="log-text"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 스키마 ─────────────────────────── -->
+  <section class="view" data-view="schema">
+    <div class="schema-layout">
+      <div class="schema-left">
+        <div class="rpanel-bar">
+          <label class="inline-field"><span data-i18n="sc.schema">스키마</span><select id="schema-owner"></select></label>
+          <input id="schema-filter" class="text-input" data-i18n-ph="sc.filter" placeholder="객체명 검색…">
+          <button class="btn btn-sm" id="btn-schema-refresh" data-i18n="sc.query">조회</button>
+        </div>
+        <div class="grid-host" id="grid-objects"></div>
+      </div>
+      <div class="schema-right">
+        <div class="rpanel-bar">
+          <span id="schema-detail-title" class="muted" data-i18n="sc.selectTable">왼쪽에서 테이블을 선택하세요.</span>
+          <span class="rpanel-bar-right">
+            <button class="btn btn-sm btn-ghost" id="btn-count-rows" data-i18n="sc.countRows" data-i18n-title="sc.countRowsTip">행수 실측</button>
+            <button class="btn btn-sm btn-ghost" id="btn-gen-select" data-i18n="sc.genSelect">SELECT 생성</button>
+          </span>
+        </div>
+        <div class="schema-tabs">
+          <button class="stab is-active" data-stab="columns" data-i18n="sc.tabColumns">컬럼</button>
+          <button class="stab" data-stab="indexes" data-i18n="sc.tabIndexes">인덱스</button>
+          <button class="stab" data-stab="constraints" data-i18n="sc.tabConstraints">제약</button>
+          <button class="stab" data-stab="stats" data-i18n="sc.tabStats">통계</button>
+        </div>
+        <div class="grid-host" id="grid-schema-detail"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 튜닝 이력 ─────────────────────────── -->
+  <section class="view" data-view="history">
+    <div class="rpanel-bar">
+      <input id="hist-q" class="text-input" data-i18n-ph="hi.search" placeholder="제목·SQL·메모 검색…">
+      <label class="inline-field"><span data-i18n="hi.status">상태</span>
+        <select id="hist-status">
+          <option value="" data-i18n="hi.statusAll">전체</option>
+          <option value="draft" data-i18n="st.draft">작성중</option>
+          <option value="verified" data-i18n="st.verified">검증완료</option>
+          <option value="applied" data-i18n="st.applied">적용됨</option>
+          <option value="rejected" data-i18n="st.rejected">보류</option>
+        </select>
+      </label>
+      <button class="btn btn-sm" id="btn-hist-refresh" data-i18n="hi.refresh">새로고침</button>
+      <span class="rpanel-bar-right"><span id="hist-summary" class="muted"></span></span>
+    </div>
+    <div class="grid-host grid-host-full" id="grid-history"></div>
+  </section>
+
+  <!-- ─────────────────────────── 설정 ─────────────────────────── -->
+  <section class="view" data-view="settings">
+    <div class="settings-wrap">
+      <div class="card">
+        <h2 data-i18n="se.diagTitle">환경 진단</h2>
+        <p class="muted" data-i18n="se.diagDesc">이 도구가 동작하는 데 필요한 것들의 실제 상태입니다.</p>
+        <div id="diag-list" class="diag-list"></div>
+        <div class="card-actions">
+          <button class="btn" id="btn-rebuild-bridge" data-i18n="se.rebuild">브리지 재빌드</button>
+          <button class="btn" id="btn-restart-bridge" data-i18n="se.restart">브리지 재기동</button>
+          <button class="btn btn-ghost" id="btn-rescan-drivers" data-i18n="se.rescan">드라이버 재탐색</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="se.javaTitle">Java 실행환경 (JDK / JRE)</h2>
+        <label class="field">
+          <span data-i18n="se.javaHome">Java 홈 경로</span>
+          <input id="cfg-java-home" class="text-input" placeholder="C:\Program Files\Eclipse Adoptium\jdk-17">
+        </label>
+        <div id="java-candidates" class="candidates"></div>
+        <label class="field">
+          <span data-i18n="se.jvmOptions">JVM 옵션 (한 줄에 하나)</span>
+          <textarea id="cfg-java-options" class="text-input" rows="3"></textarea>
+        </label>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="se.driverTitle">Oracle JDBC 드라이버</h2>
+        <label class="field">
+          <span data-i18n="se.driverPaths">드라이버 jar 경로</span>
+          <textarea id="cfg-driver-paths" class="text-input" rows="3" placeholder="D:\lib\ojdbc11.jar"></textarea>
+        </label>
+        <label class="check"><input type="checkbox" id="cfg-auto-discover"> <span data-i18n="se.autoDiscover">java/lib 자동 탐색 사용</span></label>
+        <div id="driver-list" class="candidates"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="se.execTitle">실행 기본값</h2>
+        <div class="grid2">
+          <label class="field"><span data-i18n="se.maxRows">최대 인출 행수</span><input id="cfg-max-rows" type="number" class="text-input" min="1" max="100000"></label>
+          <label class="field"><span data-i18n="se.fetchSize">Fetch Size</span><input id="cfg-fetch-size" type="number" class="text-input" min="1" max="10000"></label>
+          <label class="field"><span data-i18n="se.timeout">질의 타임아웃(초)</span><input id="cfg-timeout" type="number" class="text-input" min="1" max="3600"></label>
+          <label class="field"><span data-i18n="se.benchRuns">벤치마크 반복</span><input id="cfg-bench-runs" type="number" class="text-input" min="1" max="20"></label>
+          <label class="field"><span data-i18n="se.benchWarmup">워밍업 실행</span><input id="cfg-bench-warmup" type="number" class="text-input" min="0" max="5"></label>
+          <label class="field"><span data-i18n="se.port">서버 포트(재시작 필요)</span><input id="cfg-port" type="number" class="text-input" min="1" max="65535"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="cfg-safe-mode"> <span data-i18n-html="se.safeMode"></span></label>
+        <label class="check"><input type="checkbox" id="cfg-auto-explain"> <span data-i18n="se.autoExplain">실행 시 실행계획도 자동 조회</span></label>
+      </div>
+
+      <div class="card-actions sticky-actions">
+        <button class="btn btn-primary" id="btn-save-settings" data-i18n="se.save">설정 저장</button>
+        <span id="settings-msg" class="muted"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="app-footer">
+  <span class="af-copy">© 2026 <a href="https://foxnail.kr" target="_blank" rel="noopener">foxnail</a>. <span data-i18n="footer.rights">All rights reserved.</span></span>
+  <span class="af-sep">·</span>
+  <a href="#" data-link="license" target="_blank" rel="noopener">MIT License</a>
+  <span class="af-sep">·</span>
+  <a href="https://foxnail.kr" target="_blank" rel="noopener">foxnail.kr</a>
+  <span class="af-sep">·</span>
+  <a href="#" id="footer-help" data-i18n="top.help">도움말</a>
+</footer>
+
+<!-- 접속 모달 -->
+<div class="modal-backdrop" id="modal-connect" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 data-i18n="cn.title">DB 접속</h2>
+      <button class="btn btn-ghost btn-sm" data-close>✕</button>
+    </div>
+    <div class="modal-body conn-modal">
+      <div class="conn-list-col">
+        <div class="conn-list-head">
+          <span data-i18n="cn.saved">저장된 접속</span>
+          <button class="btn btn-sm" id="btn-new-conn" data-i18n="cn.new">+ 새로</button>
+        </div>
+        <ul class="conn-list" id="conn-list"></ul>
+      </div>
+      <div class="conn-form-col">
+        <div class="grid2">
+          <label class="field"><span data-i18n="cn.name">이름</span><input id="cf-name" class="text-input" placeholder="로컬 도커 FREE"></label>
+          <label class="field"><span data-i18n="cn.user">사용자</span><input id="cf-user" class="text-input" autocomplete="off"></label>
+          <label class="field"><span data-i18n="cn.host">호스트</span><input id="cf-host" class="text-input" placeholder="localhost"></label>
+          <label class="field"><span data-i18n="cn.port">포트</span><input id="cf-port" type="number" class="text-input" value="1521"></label>
+          <label class="field"><span data-i18n="cn.service">서비스명</span><input id="cf-service" class="text-input" placeholder="FREEPDB1"></label>
+          <label class="field"><span data-i18n="cn.sid">SID</span><input id="cf-sid" class="text-input"></label>
+          <label class="field"><span data-i18n="cn.password">비밀번호</span><input id="cf-password" type="password" class="text-input" autocomplete="new-password"></label>
+          <label class="field"><span data-i18n="cn.role">롤</span>
+            <select id="cf-role"><option value="" data-i18n="cn.roleNormal">일반</option><option value="SYSDBA">SYSDBA</option><option value="SYSOPER">SYSOPER</option></select>
+          </label>
+        </div>
+        <label class="field"><span data-i18n="cn.url">직접 URL</span>
+          <input id="cf-url" class="text-input" placeholder="jdbc:oracle:thin:@//localhost:1521/FREEPDB1"></label>
+        <label class="field"><span data-i18n="cn.note">메모</span><input id="cf-note" class="text-input"></label>
+        <div class="check-row">
+          <label class="check"><input type="checkbox" id="cf-save-pw" checked> <span data-i18n="cn.savePw">비밀번호 저장(로컬 암호화)</span></label>
+          <label class="check"><input type="checkbox" id="cf-production"> <span class="prod-mark" data-i18n="cn.productionLabel">운영계</span> <span data-i18n="cn.production">표시</span></label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="btn-test-conn" data-i18n="cn.test">접속 시험</button>
+          <button class="btn" id="btn-save-conn" data-i18n="cn.saveProfile">프로필 저장</button>
+          <button class="btn btn-danger btn-ghost" id="btn-del-conn" data-i18n="cn.delete">삭제</button>
+          <span class="spacer"></span>
+          <button class="btn btn-primary" id="btn-do-connect" data-i18n="cn.doConnect">접속</button>
+        </div>
+        <div id="conn-msg" class="conn-msg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 튜닝 저장 모달 -->
+<div class="modal-backdrop" id="modal-save" hidden>
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <h2 data-i18n="sv.title">튜닝 저장</h2>
+      <button class="btn btn-ghost btn-sm" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="field"><span data-i18n="sv.titleField">제목</span><input id="sv-title" class="text-input"></label>
+      <label class="field"><span data-i18n="sv.tags">태그 (쉼표 구분)</span><input id="sv-tags" class="text-input"></label>
+      <label class="field"><span data-i18n="sv.status">상태</span>
+        <select id="sv-status">
+          <option value="draft" data-i18n="st.draft">작성중</option>
+          <option value="verified" data-i18n="st.verified">검증완료</option>
+          <option value="applied" data-i18n="st.applied">적용됨</option>
+          <option value="rejected" data-i18n="st.rejected">보류</option>
+        </select>
+      </label>
+      <label class="field"><span data-i18n="sv.note">메모</span><textarea id="sv-note" class="text-input" rows="5"></textarea></label>
+      <label class="check" id="sv-link-row"><input type="checkbox" id="sv-link-sql" checked> <span data-i18n="sv.linkSql">이 SQL 도 목록에 저장하고 이 튜닝을 연결</span></label>
+      <div id="sv-preview" class="save-preview"></div>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="btn btn-primary" id="btn-do-save" data-i18n="sv.save">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SQL 저장 모달 (현재 편집기 SQL 을 이름 붙여 라이브러리에 저장) -->
+<div class="modal-backdrop" id="modal-library" hidden>
+  <div class="modal modal-narrow">
+    <div class="modal-head">
+      <h2 data-i18n="lib.saveCurrent">현재 SQL 저장</h2>
+      <span id="lib-scope" class="lib-scope"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid2">
+        <label class="field"><span data-i18n="lib.name">이름</span><input id="lib-name" class="text-input"></label>
+        <label class="field">
+          <span data-i18n="lib.folder">폴더</span>
+          <input id="lib-folder" class="text-input" list="lib-folder-list" data-i18n-ph="lib.folderPh" placeholder="폴더명 (없으면 새로 만들어집니다)">
+          <datalist id="lib-folder-list"></datalist>
+        </label>
+      </div>
+      <label class="field"><span data-i18n="lib.tags">추가 태그 (쉼표 구분)</span><input id="lib-tags" class="text-input"></label>
+      <label class="field"><span data-i18n="lib.desc">설명</span><input id="lib-desc" class="text-input"></label>
+      <div id="lib-sql-preview" class="lib-sql-preview"></div>
+      <div class="lib-save-actions">
+        <span id="lib-save-preview" class="muted"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-primary" id="btn-lib-save" data-i18n="lib.save">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 힌트 위저드 모달 -->
+<div class="modal-backdrop" id="modal-hint" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 data-i18n="hw.title">힌트 위저드</h2>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" data-i18n="hw.intro"></p>
+      <div id="hw-notables" class="hw-notables" hidden></div>
+      <div class="hw-list" id="hw-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 도움말 모달 -->
+<div class="modal-backdrop" id="modal-help" hidden>
+  <div class="modal modal-help">
+    <div class="modal-head">
+      <h2 data-i18n="help.title">도움말</h2>
+      <button class="btn btn-ghost btn-sm" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="help-tabs" id="help-tabs"></div>
+      <div class="help-content" id="help-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 범용 알림 -->
+<div id="toast-host" class="toast-host"></div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

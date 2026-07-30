@@ -81,5 +81,25 @@
   "deploy.portableData": { "ko": "data, config(상대경로)", "en": "data, config (relative)", "ja": "data, config(相対パス)", "zh": "data, config(相对路径)" },
   "deploy.jreArrow": { "ko": "있으면 사용", "en": "used if present", "ja": "あれば使用", "zh": "如存在则使用" },
   "deploy.installedArrow": { "ko": "설정 저장(패치 불가침)", "en": "Settings live here (patch-safe)", "ja": "設定はここに保存(パッチ不可侵)", "zh": "设置存储于此(补丁不可侵)" },
-  "deploy.portableArrow": { "ko": "앱 폴더 상대경로(USB 이동성)", "en": "App-relative path (USB-portable)", "ja": "アプリフォルダ相対パス(USB 可搬)", "zh": "应用文件夹相对路径(可移动 USB)" }
+  "deploy.portableArrow": { "ko": "앱 폴더 상대경로(USB 이동성)", "en": "App-relative path (USB-portable)", "ja": "アプリフォルダ相対パス(USB 可搬)", "zh": "应用文件夹相对路径(可移动 USB)" },
+
+  "usecase.title": { "ko": "유즈케이스", "en": "Use Cases", "ja": "ユースケース", "zh": "用例" },
+  "usecase.actor.dev": { "ko": "개발자/튜닝 담당", "en": "Developer / Tuner", "ja": "開発者・チューニング担当", "zh": "开发者/调优人员" },
+  "usecase.actor.dba": { "ko": "DBA", "en": "DBA", "ja": "DBA", "zh": "DBA" },
+  "usecase.uc.connect": { "ko": "접속 관리", "en": "Manage connections", "ja": "接続管理", "zh": "连接管理" },
+  "usecase.uc.explore": { "ko": "스키마 탐색", "en": "Explore schema", "ja": "スキーマ探索", "zh": "浏览数据字典" },
+  "usecase.uc.diagnose": { "ko": "SQL 진단", "en": "Diagnose SQL", "ja": "SQL 診断", "zh": "SQL 诊断" },
+  "usecase.uc.plan": { "ko": "실행계획 조회", "en": "View execution plan", "ja": "実行計画の確認", "zh": "查看执行计划" },
+  "usecase.uc.candidates": { "ko": "튜닝 후보 생성", "en": "Generate candidates", "ja": "チューニング候補生成", "zh": "生成调优候选" },
+  "usecase.uc.tournament": { "ko": "토너먼트 실행(성능+결과 동일성)", "en": "Run tournament (perf + result match)", "ja": "トーナメント実行(性能+結果同一性)", "zh": "执行锦标赛(性能+结果一致性)" },
+  "usecase.uc.compare": { "ko": "비교 검증", "en": "Compare & verify", "ja": "比較検証", "zh": "对比验证" },
+  "usecase.uc.history": { "ko": "튜닝 이력 저장·내보내기", "en": "Save & export history", "ja": "履歴の保存・エクスポート", "zh": "保存并导出历史" },
+  "usecase.uc.demo": { "ko": "데모 데이터 생성", "en": "Generate demo data", "ja": "デモデータ生成", "zh": "生成演示数据" },
+  "usecase.grant": { "ko": "권한 부여", "en": "Grants privileges", "ja": "権限付与", "zh": "授予权限" },
+  "usecase.note": {
+    "ko": "V$SQL 접근이 없으면 계측이 TIMING_ONLY 로 자동 하향된다. 실제 상태는 [권한 이해] 탭에서 확인.",
+    "en": "Without V$SQL access, measurement auto-falls back to TIMING_ONLY. See the [Permissions] tab for the real status.",
+    "ja": "V$SQL にアクセスできない場合、計測は自動的に TIMING_ONLY へ下がる。実際の状態は[権限の理解]タブで確認。",
+    "zh": "无法访问 V$SQL 时，测量会自动降级为 TIMING_ONLY。实际状态见[权限说明]标签页。"
+  }
 }

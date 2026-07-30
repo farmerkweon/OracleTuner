@@ -1,0 +1,37 @@
+@startuml
+!pragma layout smetana
+title ${usecase.title}
+
+left to right direction
+
+actor "${usecase.actor.dev}" as DEV
+actor "${usecase.actor.dba}" as DBA
+
+rectangle "Oracle Tuner" {
+  usecase "${usecase.uc.connect}" as UC1
+  usecase "${usecase.uc.explore}" as UC2
+  usecase "${usecase.uc.diagnose}" as UC3
+  usecase "${usecase.uc.plan}" as UC4
+  usecase "${usecase.uc.candidates}" as UC5
+  usecase "${usecase.uc.tournament}" as UC6
+  usecase "${usecase.uc.compare}" as UC7
+  usecase "${usecase.uc.history}" as UC8
+  usecase "${usecase.uc.demo}" as UC9
+}
+
+DEV --> UC1
+DEV --> UC2
+DEV --> UC3
+DEV --> UC4
+DEV --> UC5
+DEV --> UC6
+DEV --> UC7
+DEV --> UC8
+DEV --> UC9
+DBA ..> UC1 : ${usecase.grant}
+
+note right of UC6
+  ${usecase.note}
+end note
+
+@enduml

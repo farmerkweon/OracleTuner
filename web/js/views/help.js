@@ -563,6 +563,16 @@ const DESIGN_DIAGRAMS = [
       ja: 'インストール版は <インストールフォルダ>\\app\\(パッチが置き換えるサーバー・Web コード)、\\runtime\\(同梱 JRE、存在する場合のみ)、%LOCALAPPDATA%\\OracleTuner\\(設定・データ・ログ・DB — パッチは一切触れない)に分かれる。ポータブル版はこの分離を使わず、アプリのそばに portable.marker を置き、アプリフォルダ相対パスにデータを保持して USB 可搬性を優先する。',
       zh: '安装版分为 <安装文件夹>\\app\\(补丁会替换的服务器/网页代码)、\\runtime\\(内置 JRE，如果存在)，以及 %LOCALAPPDATA%\\OracleTuner\\(设置、数据、日志、数据库——补丁绝不会触碰)。便携版不采用这种划分：它在应用旁放置 portable.marker，并将数据保存在相对于应用文件夹的路径下，以保证可移动性。'
     }
+  },
+  {
+    name: 'usecase',
+    title: { ko: '유즈케이스', en: 'Use Cases', ja: 'ユースケース', zh: '用例' },
+    desc: {
+      ko: '개발자/튜닝 담당이 이 도구로 할 수 있는 9가지 작업과, DBA 가 접속 권한을 부여해야 시작된다는 관계를 보여준다. 권한 수준에 따라 일부 기능이 자동으로 낮은 단계로 전환되는데(예: V$SQL 접근 불가 시 계측이 TIMING_ONLY 로), 그 실제 상태는 [권한 이해] 탭에서 확인할 수 있다.',
+      en: 'Shows the nine things a developer/tuner can do with this tool, and that a DBA must grant connection privileges before any of it starts. Some features automatically step down to a lower tier depending on the privilege level (e.g. without V$SQL access, measurement falls back to TIMING_ONLY) — check the [Permissions] tab for the real status.',
+      ja: '開発者・チューニング担当がこのツールでできる9つの作業と、DBA が接続権限を付与しないと始まらないという関係を示す。権限レベルによって一部機能は自動的に下位の段階へ切り替わる(例: V$SQL にアクセスできない場合、計測は TIMING_ONLY に下がる) — 実際の状態は[権限の理解]タブで確認できる。',
+      zh: '展示开发者/调优人员使用本工具可执行的九项工作，以及必须由 DBA 授予连接权限才能开始的关系。部分功能会根据权限级别自动降级(例如无法访问 V$SQL 时，测量会降为 TIMING_ONLY)——实际状态可在[权限说明]标签页查看。'
+    }
   }
 ];
 

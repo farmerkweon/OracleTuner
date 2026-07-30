@@ -240,13 +240,13 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .sqlt-func     { color: #7b4bc4; }
 .sqlt-string   { color: #b3261e; }
 .sqlt-number   { color: #0a7d55; }
-.sqlt-comment  { color: #8a94a6; font-style: italic; }
+.sqlt-comment  { color: #748094; font-style: italic; }
 .sqlt-hint     { color: #0d8a5f; font-weight: 600; background: #eafaf3; border-radius: 3px; }
 .sqlt-bind     { color: #c2185b; font-weight: 600; }
 .sqlt-subst    { color: #c2185b; }
 .sqlt-qident   { color: #1f2430; text-decoration: underline dotted rgba(0,0,0,.25); }
 .sqlt-op       { color: #52607a; }
-.sqlt-punct    { color: #7a869a; }
+.sqlt-punct    { color: #6c7992; }
 .sqlt-ident    { color: #1f2430; }
 .sqlt-unknown  { color: #b3261e; text-decoration: wavy underline; }
 .sqlt-unterminated { background: #fdeaea; text-decoration: wavy underline #c62828; }
@@ -769,3 +769,19 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .num-cell { font-variant-numeric: tabular-nums; }
 .delta-good { color: var(--ok); font-weight: 700; }
 .delta-bad  { color: var(--danger); font-weight: 700; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Open Grid 테마 보정
+ *
+ * forest 가 기본 테마가 되면서 "행 선택" 이 모든 사용자가 매일 보는 화면이 됐다.
+ * 그런데 라이브러리의 forest 팔레트는 선택 배경으로 --og-primary(#388e3c) 를 그대로 쓰고
+ * 그 위에 흰 글자를 얹어서, 대비가 4.12:1 로 WCAG AA 본문 기준(4.5:1)에 미달한다.
+ * 그리드 셀 글자는 13px 내외라 Large-text 예외(3:1)에 해당하지 않는다.
+ *
+ * 같은 테마가 이미 --og-primary-dark 로 정의해 둔 #2e7d32 를 재사용한다 —
+ * 팔레트를 벗어나지 않으면서 대비가 5.13:1 로 올라가 AA 를 통과한다.
+ * (감수: docs/panel/review-P-UI-sliceA.md 의 A-2 절)
+ * ───────────────────────────────────────────────────────────────────────────── */
+[data-og-theme="forest"] {
+  --og-row-selected-bg: #2e7d32;
+}

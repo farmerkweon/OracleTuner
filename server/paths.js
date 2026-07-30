@@ -34,6 +34,16 @@ const P = {
   buildStamp: path.join(ROOT, 'java', 'out', '.build-stamp.json')
 };
 
+/**
+ * SQLite DB 파일 경로 (항목 #4). 기본은 `data/oracletuner.db`.
+ *
+ * <p>⚠ 항목 #6(설치판)에서 `%LOCALAPPDATA%` 로 데이터 위치를 분리할 때 이 함수 <b>한 곳만</b>
+ * 고치면 되도록 만들어졌다 — 경로 정책 자체(P.data 등)는 여기서 바꾸지 않는다.
+ */
+function dbFile() {
+  return path.join(P.data, 'oracletuner.db');
+}
+
 /** 필요한 디렉터리를 만든다(이미 있으면 그냥 둔다). */
 function ensureDirs() {
   for (const d of [P.config, P.data, P.tunings, P.snippets, P.logs, P.javaLib]) {
@@ -51,4 +61,4 @@ function isInside(base, target) {
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-module.exports = { ...P, ensureDirs, isInside };
+module.exports = { ...P, ensureDirs, isInside, dbFile };

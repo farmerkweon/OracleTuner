@@ -1,17 +1,19 @@
 'use strict';
 /**
- * 접속 프로필 저장소 (`config/connections.json`).
+ * 접속 프로필 저장소 — 파사드.
  *
  * - 비밀번호는 저장 시 암호화하고, 목록으로 내보낼 때는 아예 빼고 준다(브라우저로 흘리지 않는다).
  * - 실제 접속 시점에만 서버 안에서 복호화한다.
- * - 원자적 쓰기(temp → rename) 로 저장 중 프로세스가 죽어도 파일이 깨지지 않는다.
+ * - 암호화(secret.js)·URL 조립·공개용 변환은 저장 백엔드와 무관한 업무 로직이므로 여기 남는다.
+ *   repo 는 이미 암호화된 문자열이 담긴 레코드를 그대로 저장할 뿐, 평문을 볼 일이 없다
+ *   (server/repo/(json-file.js|sqlite.js) 팩토리: server/repo/index.js).
  */
 
-const fs = require('fs');
 const crypto = require('crypto');
 const P = require('./paths');
 const secret = require('./secret');
 const logger = require('./logger');
+const repo = require('./repo');
 
 const log = logger.forComponent('connections');
 
@@ -19,25 +21,7 @@ function newId() {
   return 'c' + Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
 }
 
-function readAll() {
-  try {
-    const raw = fs.readFileSync(P.connectionsFile, 'utf8');
-    // 손으로 고친 파일에 BOM 이 붙어 있어도 읽히도록 한다
-    const data = JSON.parse(raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw);
-    const list = Array.isArray(data) ? data : (data.connections || []);
-    return list.filter((c) => c && typeof c === 'object');
-  } catch (e) {
-    if (e.code !== 'ENOENT') log.error(`connections.json 읽기 실패: ${e.message}`);
-    return [];
-  }
-}
-
-function writeAll(list) {
-  P.ensureDirs();
-  const tmp = P.connectionsFile + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify({ version: 1, connections: list }, null, 2), 'utf8');
-  fs.renameSync(tmp, P.connectionsFile);
-}
+const connectionRepo = repo.createConnectionRepo({ paths: P, log });
 
 /** 브라우저로 내보낼 형태 — 비밀번호 제거, 저장 여부만 표시. */
 function toPublic(c) {
@@ -63,19 +47,17 @@ function buildUrl(c) {
 }
 
 function list() {
-  return readAll().map(toPublic);
+  return connectionRepo.list().map(toPublic);
 }
 
 function get(id) {
-  return readAll().find((c) => c.id === id) || null;
+  return connectionRepo.get(id);
 }
 
 /** 저장(신규/수정). password 가 오면 암호화해 넣고, 없으면 기존 값을 유지한다. */
 function save(input) {
-  const list = readAll();
   const now = new Date().toISOString();
-  const idx = input.id ? list.findIndex((c) => c.id === input.id) : -1;
-  const prev = idx >= 0 ? list[idx] : null;
+  const prev = input.id ? connectionRepo.get(input.id) : null;
 
   const rec = {
     id: input.id || newId(),
@@ -104,29 +86,23 @@ function save(input) {
     rec.password = secret.encrypt(input.password);
   }
 
-  if (idx >= 0) list[idx] = rec;
-  else list.push(rec);
-  writeAll(list);
-  log.info(`${idx >= 0 ? '수정' : '생성'} 프로필 ${rec.id} (${rec.name})`);
+  connectionRepo.save(rec);
+  log.info(`${prev ? '수정' : '생성'} 프로필 ${rec.id} (${rec.name})`);
   return toPublic(rec);
 }
 
 function remove(id) {
-  const list = readAll();
-  const next = list.filter((c) => c.id !== id);
-  if (next.length === list.length) return false;
-  writeAll(next);
-  log.info(`삭제 프로필 ${id}`);
-  return true;
+  const ok = connectionRepo.remove(id);
+  if (ok) log.info(`삭제 프로필 ${id}`);
+  return ok;
 }
 
 /** 접속 성공 시각 기록. */
 function touch(id) {
-  const list = readAll();
-  const c = list.find((x) => x.id === id);
+  const c = connectionRepo.get(id);
   if (!c) return;
   c.lastConnectedAt = new Date().toISOString();
-  writeAll(list);
+  connectionRepo.save(c);
 }
 
 /**

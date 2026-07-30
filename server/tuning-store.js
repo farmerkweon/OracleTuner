@@ -1,40 +1,29 @@
 'use strict';
 /**
- * 튜닝 이력 저장소 (파일 기반).
+ * 튜닝 이력 저장소 — 파사드.
  *
- * <p>DB 를 쓰지 않는다 — 튜닝 대상 DB 에 흔적을 남기지 않아야 하고, 사내 반출/공유가
- * 파일 복사만으로 되어야 하기 때문이다. 한 건이 한 파일(`data/tunings/<id>.json`)이라
- * 동시 수정 충돌이 사실상 없고, 형상관리(git)에 그대로 올릴 수 있다.
+ * <p>실제 저장은 server/repo/(json-file.js|sqlite.js) 가 한다(팩토리: server/repo/index.js).
+ * 이 파일은 ID 생성, 기본값 병합, 변경 이력(history) 누적, 목록 필터링, 태그 집계,
+ * Markdown/.sql 내보내기처럼 <b>저장 방식과 무관한 업무 로직</b>만 담당한다 — 그래서
+ * 백엔드가 파일이든 SQLite 든 이 파일과 그 위(server/api.js)는 손댈 필요가 없다.
  *
- * <p>목록 조회용 인덱스(`index.json`)는 <b>캐시일 뿐</b>이다. 없거나 깨지면 디렉터리를
- * 다시 훑어 복구한다(멱등). 정본은 언제나 개별 파일이다.
+ * <p>공개 함수 시그니처는 이관 전과 동일하다.
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const P = require('./paths');
 const T = require('../shared/sql-tokenizer');
 const logger = require('./logger');
+const repo = require('./repo');
 
 const log = logger.forComponent('tuning-store');
-const INDEX_FILE = path.join(P.tunings, 'index.json');
 
 function newId() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   return `T${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${crypto.randomBytes(2).toString('hex')}`;
-}
-
-function fileFor(id) {
-  if (!/^[A-Za-z0-9_\-.]+$/.test(String(id))) throw new Error(`잘못된 튜닝 ID: ${id}`);
-  return path.join(P.tunings, `${id}.json`);
-}
-
-function writeAtomic(file, obj) {
-  const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf8');
-  fs.renameSync(tmp, file);
 }
 
 /** 목록 표시에 필요한 만큼만 뽑는다(본문 SQL·계획은 제외해 목록이 가벼워지게). */
@@ -77,40 +66,10 @@ function preview(sql) {
   return s.length > 160 ? s.slice(0, 160) + '…' : s;
 }
 
-/** 디렉터리를 훑어 인덱스를 다시 만든다. */
-function rebuildIndex() {
-  P.ensureDirs();
-  const items = [];
-  let files = [];
-  try {
-    files = fs.readdirSync(P.tunings).filter((f) => f.endsWith('.json') && f !== 'index.json');
-  } catch (e) {
-    log.error(`튜닝 디렉터리 읽기 실패: ${e.message}`);
-    return [];
-  }
-  for (const f of files) {
-    try {
-      const rec = JSON.parse(fs.readFileSync(path.join(P.tunings, f), 'utf8'));
-      if (rec && rec.id) items.push(toSummary(rec));
-    } catch (e) {
-      log.warn(`손상된 튜닝 파일 건너뜀: ${f} (${e.message})`);
-    }
-  }
-  items.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-  try {
-    writeAtomic(INDEX_FILE, { version: 1, rebuiltAt: new Date().toISOString(), items });
-  } catch (e) {
-    log.warn(`인덱스 저장 실패(무시하고 진행): ${e.message}`);
-  }
-  return items;
-}
+const tuningRepo = repo.createTuningRepo({ paths: P, log, toSummary });
 
-function readIndex() {
-  try {
-    const idx = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
-    if (idx && Array.isArray(idx.items)) return idx.items;
-  } catch (e) { /* 없으면 재생성 */ }
-  return rebuildIndex();
+function rebuildIndex() {
+  return tuningRepo.rebuildIndex();
 }
 
 /**
@@ -119,7 +78,7 @@ function readIndex() {
  */
 function list(filter) {
   const f = filter || {};
-  let items = readIndex();
+  let items = tuningRepo.listSummaries();
   if (f.q) {
     const q = String(f.q).toLowerCase();
     items = items.filter((i) =>
@@ -141,7 +100,7 @@ function list(filter) {
 /** 접속(scope) 안에서 SQL 이름별 튜닝 이력 건수. SQL 목록에 배지로 표시한다. */
 function countsBySql(scope) {
   const counts = {};
-  for (const i of readIndex()) {
+  for (const i of tuningRepo.listSummaries()) {
     if (!i.sqlName) continue;
     if (scope && i.sqlScope !== scope) continue;
     counts[i.sqlName] = (counts[i.sqlName] || 0) + 1;
@@ -150,12 +109,7 @@ function countsBySql(scope) {
 }
 
 function get(id) {
-  try {
-    return JSON.parse(fs.readFileSync(fileFor(id), 'utf8'));
-  } catch (e) {
-    if (e.code === 'ENOENT') return null;
-    throw e;
-  }
+  return tuningRepo.get(id);
 }
 
 /**
@@ -163,7 +117,6 @@ function get(id) {
  * 감사 추적을 위해 변경 이력(history)을 누적한다.
  */
 function save(input) {
-  P.ensureDirs();
   const now = new Date().toISOString();
   const id = input.id || newId();
   const prev = input.id ? get(input.id) : null;
@@ -204,33 +157,37 @@ function save(input) {
   }]).slice(-100);
   delete rec.historyNote;
 
-  writeAtomic(fileFor(id), rec);
-  rebuildIndex();
+  tuningRepo.save(rec);
+  tuningRepo.rebuildIndex();
   log.info(`${action} 튜닝 ${id} (${rec.title || '제목없음'}) status=${rec.status}`);
   return rec;
 }
 
+/**
+ * 삭제. 지우기 전에 휴지통에 백업 한 부를 남긴다(실수로 지운 튜닝은 되살릴 수 있어야 한다).
+ * 이 안전장치는 저장 백엔드가 무엇이든(파일이든 SQLite 든) 동일하게 동작해야 하므로
+ * repo 가 아니라 파사드에 둔다 — repo.get() 으로 레코드를 읽어 휴지통 파일로 써낸다.
+ */
 function remove(id) {
-  const file = fileFor(id);
-  if (!fs.existsSync(file)) return false;
-  // 지우기 전에 백업 한 부를 남긴다 — 실수로 지운 튜닝은 되살릴 수 있어야 한다
+  const rec = get(id);
+  if (!rec) return false;
   try {
     const trash = path.join(P.tunings, '.trash');
     fs.mkdirSync(trash, { recursive: true });
-    fs.copyFileSync(file, path.join(trash, `${id}.${Date.now()}.json`));
+    fs.writeFileSync(path.join(trash, `${id}.${Date.now()}.json`), JSON.stringify(rec, null, 2), 'utf8');
   } catch (e) {
     log.warn(`백업 실패(삭제는 계속): ${e.message}`);
   }
-  fs.unlinkSync(file);
-  rebuildIndex();
-  log.info(`삭제 튜닝 ${id}`);
-  return true;
+  const ok = tuningRepo.remove(id);
+  tuningRepo.rebuildIndex();
+  if (ok) log.info(`삭제 튜닝 ${id}`);
+  return ok;
 }
 
 /** 태그 목록(빈도순). */
 function tags() {
   const counts = new Map();
-  for (const i of readIndex()) {
+  for (const i of tuningRepo.listSummaries()) {
     for (const t of (i.tags || [])) counts.set(t, (counts.get(t) || 0) + 1);
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([tag, count]) => ({ tag, count }));

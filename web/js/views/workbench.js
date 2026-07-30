@@ -271,12 +271,18 @@ async function runSql(side, btn) {
         (r.rolledBack ? ' · <span style="color:var(--warn)">안전모드로 자동 롤백됨</span>' : ' · <b style="color:var(--danger)">커밋되지 않음(수동 커밋 필요)</b>');
       logMsg(`영향 행수 ${r.affectedRows}${r.rolledBack ? ' (자동 롤백)' : ''}`, 'ok');
     } else {
+      // 소비(실제로 읽은 행수)와 표시(응답에 보관된 행수)를 분리해 보여준다 — 성능평가 목적상
+      // 실제 소비 행수가 진실이고, 표시 행수는 keepRowsMax 로 묶인 UI 용 상한이다.
+      const consumed = r.consumedRows != null ? r.consumedRows : r.rowCount;
+      const kept = r.keptRowCount != null ? r.keptRowCount : r.rowCount;
+      const keepNote = r.keepTruncated ? ' <span style="color:var(--warn)">(표시 상한 초과 — 일부만 보관)</span>' : '';
       $('#result-summary').innerHTML =
-        `<b>${fmtNum(r.rowCount)}행</b>${r.truncated ? ' <span style="color:var(--warn)">(최대 인출 수에서 잘림)</span>' : ''}` +
+        `<b>소비 ${fmtNum(consumed)}행</b> · 표시 ${fmtNum(kept)}행${keepNote}` +
+        `${r.truncated ? ' <span style="color:var(--warn)">(최대 인출 수에서 잘림)</span>' : ''}` +
         ` · 실행 ${fmtMs(t.executeMs)} + 인출 ${fmtMs(t.fetchMs)} = <b>${fmtMs(t.totalMs)}</b>` +
         ` · 왕복 ${fmtMs(wall)}` +
         (r.statsAvailable ? ' · 세션통계 수집됨' : ' · <span class="muted">세션통계 없음(권한)</span>');
-      logMsg(`${r.rowCount}행 / ${fmtMs(t.totalMs)}`, 'ok');
+      logMsg(`소비 ${consumed}행 · 표시 ${kept}행 / ${fmtMs(t.totalMs)}`, 'ok');
     }
 
     // 설정에 따라 계획도 같이

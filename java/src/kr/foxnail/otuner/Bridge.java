@@ -116,7 +116,7 @@ public final class Bridge {
             id = Json.str(req, "id", "?");
             String cmd = Json.str(req, "cmd", "");
             Map<String, Object> params = Json.asMap(req.get("params"));
-            Object data = dispatch(cmd, params);
+            Object data = dispatch(cmd, params, id);
             Map<String, Object> res = Json.obj();
             res.put("id", id);
             res.put("ok", Boolean.TRUE);
@@ -136,7 +136,7 @@ public final class Bridge {
 
     // ── 명령 디스패치 ─────────────────────────────────────────────────────────
 
-    private static Object dispatch(String cmd, Map<String, Object> p) throws Exception {
+    private static Object dispatch(String cmd, Map<String, Object> p, String reqId) throws Exception {
         if ("ping".equals(cmd)) {
             Map<String, Object> m = Json.obj();
             m.put("pong", Boolean.TRUE);
@@ -212,7 +212,7 @@ public final class Bridge {
         if ("execute".equals(cmd)) return Exec.execute(s, p);
         if ("benchmark".equals(cmd)) return Exec.benchmark(s, p);
         if ("compare".equals(cmd)) return Exec.compare(s, p);
-        if ("tournament".equals(cmd)) return Exec.tournament(s, p);
+        if ("tournament".equals(cmd)) return Exec.tournament(s, p, reqId);
         if ("explain".equals(cmd)) return Plan.explain(s, Json.str(p, "sql", ""));
         if ("displayCursor".equals(cmd)) return Plan.displayCursor(s, Json.str(p, "format", ""));
         if ("sqlStats".equals(cmd)) return Plan.sqlStats(s, Json.str(p, "sqlId", ""));
@@ -274,6 +274,18 @@ public final class Bridge {
     }
 
     // ── 출력 ─────────────────────────────────────────────────────────────────
+
+    /**
+     * 요청/응답 매칭과 별개인 진행 이벤트를 stdout 으로 흘린다. {@code id} 는 원 요청과 같지만
+     * {@code event} 필드가 있어 Node 쪽 파서가 promise 를 resolve 하지 않고 별도로 처리한다.
+     */
+    static void event(String reqId, String eventName, Map<String, Object> data) {
+        Map<String, Object> m = Json.obj();
+        m.put("id", reqId);
+        m.put("event", eventName);
+        if (data != null) m.putAll(data);
+        emit(m);
+    }
 
     private static void emit(Map<String, Object> obj) {
         String s = Json.write(obj);

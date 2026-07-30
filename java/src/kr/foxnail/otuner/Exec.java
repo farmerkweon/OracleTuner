@@ -843,7 +843,7 @@ public final class Exec {
      * <p>결과가 다른 후보도 <b>버리지 않고</b> 판정 결과와 함께 돌려준다.
      * "빠르지만 결과가 다르다"는 사실 자체가 사용자가 알아야 할 정보이기 때문이다.
      */
-    public static Map<String, Object> tournament(Db.Session s, Map<String, Object> params) throws SQLException {
+    public static Map<String, Object> tournament(Db.Session s, Map<String, Object> params, String reqId) throws SQLException {
         Map<String, Object> baseP = Json.asMap(params.get("baseline"));
         List<Object> cands = Json.asList(params.get("candidates"));
         int runs = Math.max(1, Math.min(20, Json.intv(params, "runs", 3)));
@@ -870,6 +870,8 @@ public final class Exec {
         Map<String, Map<String, Object>> byId = new LinkedHashMap<String, Map<String, Object>>();
         List<Map<String, Object>> alive = new ArrayList<Map<String, Object>>();
 
+        int verifyTotal = cands.size();
+        int verifyDone = 0;
         for (Object o : cands) {
             Map<String, Object> c = Json.asMap(o);
             String id = Json.str(c, "id", "");
@@ -892,6 +894,13 @@ public final class Exec {
                 r.put("ora", Db.oraCode(msg));
             }
             byId.put(id, r);
+            verifyDone++;
+            Map<String, Object> pe = Json.obj();
+            pe.put("phase", "verify");
+            pe.put("done", Integer.valueOf(verifyDone));
+            pe.put("total", Integer.valueOf(verifyTotal));
+            pe.put("label", id);
+            Bridge.event(reqId, "progress", pe);
         }
 
         // ── 3) 라운드로빈 측정 ──────────────────────────────────────────────
@@ -913,6 +922,8 @@ public final class Exec {
             }
         }
 
+        int measureTotal = runs * lineup.size();
+        int measureDone = 0;
         for (int r = 0; r < runs; r++) {
             for (int k = 0; k < lineup.size(); k++) {
                 Map<String, Object> e = lineup.get((k + r) % lineup.size()); // ← 회차마다 순서 회전
@@ -928,6 +939,13 @@ public final class Exec {
                     item.put("error", String.valueOf(t.getMessage()));
                     runsById.get(id).add(item);
                 }
+                measureDone++;
+                Map<String, Object> pe = Json.obj();
+                pe.put("phase", "measure");
+                pe.put("done", Integer.valueOf(measureDone));
+                pe.put("total", Integer.valueOf(measureTotal));
+                pe.put("label", id);
+                Bridge.event(reqId, "progress", pe);
             }
         }
 

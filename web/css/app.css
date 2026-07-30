@@ -823,3 +823,20 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 [data-og-theme="forest"] {
   --og-row-selected-bg: #2e7d32;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 서브그리드(masterDetail) 상세 패널 — 휠이 끝에서 막히던 문제 (항목 #8)
+ *
+ * 라이브러리가 상세 패널을 만들 때 style.cssText 로 overscroll-behavior:contain 을
+ * 인라인으로 박는다 (node_modules/open-grid/dist/OpenGrid-*.js 의 detail 렌더러,
+ * id="og-detail-<rowId>" 요소). contain 은 스크롤 체이닝을 끊기 때문에,
+ * 상세 패널 안쪽 스크롤이 끝에 닿아도 바깥 그리드로 이어지지 않는다.
+ * → 마우스가 상세 패널 위에 있으면 휠이 "막힌" 것처럼 느껴진다.
+ *   발주자 표현: "서브그리드 마우스 휠로 끝까지 보지 못할 경우 있음."
+ *
+ * 인라인 스타일이라 일반 규칙으로는 이길 수 없다. !important 가 필요하다
+ * (CSS 캐스케이드상 author !important > author inline). 실측으로 확인했다.
+ * ───────────────────────────────────────────────────────────────────────────── */
+[id^="og-detail-"] {
+  overscroll-behavior: auto !important;
+}

@@ -34,28 +34,36 @@ const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
 
-/** 실행 모드: 'env' | 'portable' | 'dev' | 'installed'. 판정 규칙은 파일 상단 주석 참고. */
-function detectMode() {
-  if (process.env.ORACLE_TUNER_DATA_DIR) return 'env';
-  if (fs.existsSync(path.join(ROOT, 'portable.marker'))) return 'portable';
-  if (fs.existsSync(path.join(ROOT, '.git'))) return 'dev';
-  return 'installed';
-}
+/**
+ * 실행 모드 + 데이터 루트 판정 — 순수 함수로 뺐다(rootDir/env 를 인자로 받는다).
+ *
+ * 실제 실행 시에는 아래에서 `resolveMode(ROOT, process.env)` 로 호출한다. 순수 함수로 뺀
+ * 이유는 테스트 때문이다: 이 리포 자체가 항상 .git 을 갖고 있어서 '설치 모드'(.git 도
+ * portable.marker 도 없는 경우) 분기는 실제 ROOT 로는 재현할 수 없다 — 테스트에서 임의의
+ * 임시 디렉터리를 rootDir 로 넘겨 네 가지 분기를 전부 검증한다(test/run-tests.js 참고).
+ *
+ * @returns {{mode: 'env'|'portable'|'dev'|'installed', dataRoot: string}}
+ */
+function resolveMode(rootDir, env) {
+  let mode;
+  if (env.ORACLE_TUNER_DATA_DIR) mode = 'env';
+  else if (fs.existsSync(path.join(rootDir, 'portable.marker'))) mode = 'portable';
+  else if (fs.existsSync(path.join(rootDir, '.git'))) mode = 'dev';
+  else mode = 'installed';
 
-const MODE = detectMode();
-
-/** 데이터 루트(config/data/logs 의 상위 폴더)를 모드에 따라 정한다. */
-function resolveDataRoot() {
-  if (MODE === 'env') return path.resolve(process.env.ORACLE_TUNER_DATA_DIR);
-  if (MODE === 'installed') {
-    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    return path.join(localAppData, 'OracleTuner');
+  let dataRoot;
+  if (mode === 'env') dataRoot = path.resolve(env.ORACLE_TUNER_DATA_DIR);
+  else if (mode === 'installed') {
+    const localAppData = env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    dataRoot = path.join(localAppData, 'OracleTuner');
+  } else {
+    // portable, dev: 앱 루트 상대경로(기존 동작 그대로)
+    dataRoot = rootDir;
   }
-  // portable, dev: 앱 루트 상대경로(기존 동작 그대로)
-  return ROOT;
+  return { mode, dataRoot };
 }
 
-const DATA_ROOT = resolveDataRoot();
+const { mode: MODE, dataRoot: DATA_ROOT } = resolveMode(ROOT, process.env);
 
 const P = {
   root: ROOT,
@@ -138,4 +146,4 @@ function isInside(base, target) {
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-module.exports = { ...P, ensureDirs, isInside, dbFile };
+module.exports = { ...P, ensureDirs, isInside, dbFile, resolveMode };

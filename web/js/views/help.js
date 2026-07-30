@@ -624,7 +624,9 @@ function aboutHtml(lang) {
       supportText: '이 도구가 도움이 되셨다면, 개발자를 위해 아래 두 앱을 휴대폰에 설치하고 즐겨 주세요. 큰 힘이 됩니다.',
       appLotto: '로또 스도쿠 (Google Play)',
       appLottoDesc: '한국 로또는 물론 미국 파워볼과 각국 로또의 번호 생성을 지원합니다.',
+      appLottoQrAlt: 'LottoSudoku 다운로드 QR 코드',
       appArt: '아트 그리드 (Google Play)',
+      appArtQrAlt: 'Art Grid 다운로드 QR 코드',
       iosNote: '여력이 되면 아이폰 사용자를 위해서도 만들어 보겠습니다.',
       shareNote: '앱이 만족스러우면 앱의 공유 기능으로 주위 분들께 전해 주시면 참으로 감사하겠습니다.',
       disclaimerTitle: 'SQL 최종 검증은 사용자 책임입니다',
@@ -649,7 +651,9 @@ function aboutHtml(lang) {
       supportText: 'If this tool helped you, please install and enjoy the two apps below on your phone — it means a lot to the developer.',
       appLotto: 'Lotto Sudoku (Google Play)',
       appLottoDesc: 'Generates numbers not only for the Korean Lotto but also for the US Powerball and lotteries in many other countries.',
+      appLottoQrAlt: 'QR code to download LottoSudoku',
       appArt: 'Art Grid (Google Play)',
+      appArtQrAlt: 'QR code to download Art Grid',
       iosNote: 'If time allows, I will try to make iPhone versions too.',
       shareNote: 'If you enjoy an app, sharing it with people around you via its share feature would be deeply appreciated.',
       disclaimerTitle: 'Final SQL validation is the user\'s responsibility',
@@ -674,7 +678,9 @@ function aboutHtml(lang) {
       supportText: 'このツールが役立ったら、開発者のために下記の 2 つのアプリをスマホに入れて楽しんでください。とても励みになります。',
       appLotto: 'ロト数独 (Google Play)',
       appLottoDesc: '韓国ロトはもちろん、米国パワーボールや各国の宝くじの番号生成に対応しています。',
+      appLottoQrAlt: 'LottoSudoku ダウンロード QR コード',
       appArt: 'アートグリッド (Google Play)',
+      appArtQrAlt: 'Art Grid ダウンロード QR コード',
       iosNote: '余裕ができれば iPhone 版も作ってみます。',
       shareNote: 'アプリが気に入ったら、共有機能で周りの方に伝えていただけると大変ありがたいです。',
       disclaimerTitle: 'SQL の最終検証は利用者の責任です',
@@ -699,7 +705,9 @@ function aboutHtml(lang) {
       supportText: '如果本工具对你有帮助，请在手机上安装并体验下面两款应用 —— 对开发者是很大的鼓励。',
       appLotto: '乐透数独 (Google Play)',
       appLottoDesc: '不仅支持韩国乐透，还支持美国强力球以及各国彩票的号码生成。',
+      appLottoQrAlt: 'LottoSudoku 下载二维码',
       appArt: 'Art Grid (Google Play)',
+      appArtQrAlt: 'Art Grid 下载二维码',
       iosNote: '有余力的话，也会尝试为 iPhone 用户制作。',
       shareNote: '如果你喜欢这款应用，通过应用的分享功能推荐给身边的人将不胜感激。',
       disclaimerTitle: 'SQL 的最终验证由用户负责',
@@ -739,13 +747,19 @@ function aboutHtml(lang) {
       <div>${esc(L.supportText)}</div>
       <div class="help-apps">
         <a class="help-app" href="https://play.google.com/store/apps/details?id=com.foxnail.lotto_sudoku" target="_blank" rel="noopener">
-          <span class="help-app-name">🎱 ${esc(L.appLotto)}</span>
-          <span class="help-app-desc">${esc(L.appLottoDesc)}</span>
-          <span class="help-app-url">https://play.google.com/store/apps/details?id=com.foxnail.lotto_sudoku</span>
+          <img class="help-app-qr" src="/help-img/qr-sudoku.png" width="128" height="128" alt="${esc(L.appLottoQrAlt)}">
+          <span class="help-app-text">
+            <span class="help-app-name">🎱 ${esc(L.appLotto)}</span>
+            <span class="help-app-desc">${esc(L.appLottoDesc)}</span>
+            <span class="help-app-url">https://play.google.com/store/apps/details?id=com.foxnail.lotto_sudoku</span>
+          </span>
         </a>
         <a class="help-app" href="https://play.google.com/store/apps/details?id=com.artgrid.app.free" target="_blank" rel="noopener">
-          <span class="help-app-name">🎨 ${esc(L.appArt)}</span>
-          <span class="help-app-url">https://play.google.com/store/apps/details?id=com.artgrid.app.free</span>
+          <img class="help-app-qr" src="/help-img/qr-artgrid.png" width="128" height="128" alt="${esc(L.appArtQrAlt)}">
+          <span class="help-app-text">
+            <span class="help-app-name">🎨 ${esc(L.appArt)}</span>
+            <span class="help-app-url">https://play.google.com/store/apps/details?id=com.artgrid.app.free</span>
+          </span>
         </a>
       </div>
       <div class="help-support-sub">${esc(L.shareNote)}</div>

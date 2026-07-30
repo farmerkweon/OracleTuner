@@ -738,10 +738,14 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .help-support-sub { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; }
 .help-apps { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 4px; }
 .help-app {
-  display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 7px;
+  display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 7px;
   background: var(--panel); border: 1px solid var(--border); text-decoration: none;
 }
 .help-app:hover { border-color: var(--accent); background: #fbfaff; }
+/* QR 코드 — 스캔 가능성이 생명이다. filter/box-shadow/opacity/border-radius/image-rendering 을
+   절대 씌우지 말 것(인식률 저하). 120~140px 유지(357px 원본이라 고밀도 화면에서도 선명). */
+.help-app-qr { flex: 0 0 auto; width: 128px; height: 128px; background: #fff; }
+.help-app-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .help-app-name { font-weight: 700; color: var(--text); font-size: 12.5px; }
 .help-app-desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
 .help-app-url { font-family: var(--mono); font-size: 10.5px; color: var(--primary); word-break: break-all; }

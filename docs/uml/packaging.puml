@@ -1,0 +1,16 @@
+﻿@startuml Oracle Tuner Packaging
+!theme plain
+package "ZIP구조" {
+  component "runtime/ (node + jre선택)"
+  component "server/web/demo"
+  component "config/data/logs [빈폴더]"
+  component "OracleTuner.bat"
+}
+package "i18n" {
+  component "276 키 (ko,en,ja,zh)"
+  component "localStorage → fallback"
+}
+package "데모" {
+  component "30만건 + 8예제 + DROP"
+}
+@enduml

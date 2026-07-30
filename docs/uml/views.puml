@@ -1,0 +1,128 @@
+﻿@startuml views
+!theme plain
+skinparam linetype ortho
+skinparam backgroundColor #fafbfc
+
+package "Views (web/js/views/)" {
+  class Workbench {
+    - state: {editors, lastResult, lastPlan, lastAnalysis}
+    + initWorkbench()
+    + relayout()
+    + setDoc(side, doc)
+    + getEditors()
+    + resetWorkbench()
+  }
+
+  class Candidates {
+    - state: {generated, result, onAdopt}
+    + initCandidates(opts)
+    + invalidate()
+    - generate(btn): async
+    - runTournament(btn): async
+  }
+
+  class History {
+    - editorsRef, saveContext
+    + initHistory(opts)
+    + refresh(): async
+    + openSaveModal(ctx)
+  }
+
+  class Library {
+    - selected, cache
+    + initLibrary(opts)
+    + refreshPage(): async
+    + openModal(side)
+    + renderDock(hostEl): async
+  }
+
+  class Schema {
+    - state: {owner, table, tab, cache}
+    + initSchema(opts)
+    + onConnected(): async
+    + loadObjects(): async
+  }
+
+  class Settings {
+    - current
+    + initSettings()
+    + refresh(): async
+  }
+
+  class Connect {
+    - connections, selectedId
+    + initConnect(opts)
+    + open(): async
+    + renderStatus()
+  }
+
+  class HintWizard {
+    - ctx, tables, indexesByTable
+    + initHintWizard(opts)
+    + open(side): async
+  }
+
+  class Help {
+    - activeTab
+    + initHelp()
+    + open()
+    + openCapabilities()
+  }
+}
+
+package "Shared Components" {
+  class SqlEditor {
+    + setValue(sql)
+    + refresh()
+  }
+  
+  class GridKit {
+    + makeGrid(host, config)
+    + renderTable/Result/Plan(host, data)
+  }
+  
+  class I18n {
+    + t(key)
+    + getLang()
+  }
+  
+  class Api {
+    + connect(profile): async
+    + tournament(opts): async
+    + saveTuning(rec): async
+    + saveSnippet(snippet): async
+  }
+}
+
+Workbench --|> SqlEditor
+Workbench --|> GridKit
+Workbench --> Library
+Workbench --> Candidates
+Workbench --> Schema
+Candidates --|> GridKit
+History --|> GridKit
+Library --|> GridKit
+Schema --|> GridKit
+HintWizard --|> Api
+Workbench --|> Api
+Candidates --|> Api
+History --|> Api
+Library --|> Api
+Schema --|> Api
+Connect --|> Api
+
+note right of Workbench
+  SQL execution & comparison
+  - before/after editors
+  - result/plan/findings tabs
+  - compare & verify
+end note
+
+note right of Candidates
+  Tuning pipeline
+  1. Generate candidates
+  2. Tournament (sequential test)
+  3. Rank & adopt
+end note
+
+@enduml

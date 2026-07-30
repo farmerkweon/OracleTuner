@@ -1,0 +1,92 @@
+﻿@startuml web-core
+!define PRIMARY_COLOR #1976d2
+!define PANEL_COLOR #ffffff
+
+skinparam linetype ortho
+skinparam classBackgroundColor PANEL_COLOR
+skinparam arrowColor PRIMARY_COLOR
+
+package "DOM 레이아웃" {
+  class HTML { height: 100% }
+  class Body { height: 100% }
+  class Header.topbar
+  class Nav.railbar
+  class "Main#views" {
+    height: calc(100% - 52px - 28px)
+    position: relative
+  }
+  class "Footer.app-footer" {
+    position: fixed
+    bottom: 0; height: 28px
+  }
+  HTML --> Body
+  Body --> Header.topbar
+  Body --> Nav.railbar
+  Body --> "Main#views"
+  Body --> "Footer.app-footer"
+}
+
+package "뷰 (data-view)" {
+  class sqls { .schema-layout }
+  class workbench { .wb-layout, split-v }
+  class schema { .schema-layout }
+  class history { .grid-history }
+}
+
+package "SQL Editor (editor.js)" {
+  class SqlEditor {
+    .sqled-input (textarea)
+    .sqled-highlight (pre>code)
+    .sqled-gutter (줄번호)
+  }
+  class Tokenizer {
+    globalThis.SqlTokenizer
+    highlight(sql) -> HTML
+  }
+  SqlEditor --> Tokenizer
+}
+
+package "그리드 (Open Grid)" {
+  class makeGrid { 옵션: theme, columns, data }
+  class GridInstance {
+    setTheme(theme)
+    setData(rows)
+    masterDetail?: {height, renderer}
+  }
+  makeGrid --> GridInstance
+}
+
+package "테마 시스템" {
+  class "app.css :root" {
+    --primary: #1976d2
+    --text: #1f2430
+    --panel: #ffffff
+    ...기타 변수
+  }
+  class "Token Colors" {
+    .sqlt-keyword: #0b5cad
+    .sqlt-string: #b3261e
+  }
+  class "Open Grid Themes" {
+    /vendor/open-grid-themes.css
+  }
+}
+
+package "부트스트랩 (app.js)" {
+  class "initShell()" {
+    localStorage('ot.theme') 복구
+    setTheme(value)
+    모든 그리드 적용
+  }
+  class "switchView()" {
+    라우팅 로직
+  }
+}
+
+"Main#views" --> sqls
+"Main#views" --> workbench
+"Main#views" --> schema
+initShell() --> GridInstance
+switchView() --> "Main#views"
+
+@enduml

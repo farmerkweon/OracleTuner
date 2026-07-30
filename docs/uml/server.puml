@@ -1,0 +1,136 @@
+﻿@startuml server
+!theme plain
+
+package "OracleTuner Server" {
+  [index.js] as INDEX
+  [config.js] as CONFIG
+  [paths.js] as PATHS
+  [api.js] as API
+  [bridge.js] as BRIDGE
+  [logger.js] as LOGGER
+  
+  package "저장소" {
+    [tuning-store.js] as TSTORE
+    [snippet-store.js] as SSTORE
+    [connections.js] as CONNS
+  }
+  
+  package "보안" {
+    [secret.js] as SECRET
+  }
+}
+
+package "외부" {
+  [Node http] as HTTP
+  [Java Bridge Process] as JBRIDGE
+  [Oracle DB] as ODB
+  [정적 파일/web] as WEB
+}
+
+package "저장소 파일" {
+  folder "config/" {
+    file "settings.json" as SETTINGS
+    file "connections.json" as CONNSFILE
+    file "secret.key" as KEYFILE
+  }
+  folder "data/tunings/" {
+    file "index.json" as TIDX
+    file "<id>.json" as TREC
+    folder ".trash/" {
+      file "<id>.<ts>.json" as TRASH
+    }
+  }
+  folder "data/snippets/" {
+    folder "<scope>/" {
+      file "<name>.sql" as SNIP
+    }
+  }
+  folder "logs/" {
+    file "server.log" as SLOG
+    file "<component>.log" as CLOG
+  }
+}
+
+INDEX --> HTTP : http.createServer()
+INDEX --> CONFIG : config.load()
+INDEX --> PATHS : P.settingsFile 등
+INDEX --> API : api.dispatch()
+INDEX --> BRIDGE : bridge.request()
+INDEX --> LOGGER : logger.forComponent()
+
+CONFIG --> SETTINGS : fs.readFileSync/writeFileSync
+CONFIG --> PATHS : P.settingsFile 등
+CONFIG --> PATHS : P.ensureDirs()
+
+API --> BRIDGE : bridge.request('execute','explain','tournament')
+API --> TSTORE : 토너먼트 결과 저장 
+API --> SSTORE : SQL 라이브러리 조회
+API --> CONNS : 접속 프로필 조회
+API --> CONFIG : execution.maxRows 등
+
+TSTORE --> PATHS : P.tunings 경로
+TSTORE --> TIDX : index.json 읽기/쓰기
+TSTORE --> TREC : 각 튜닝 .json
+TSTORE --> TRASH : 삭제시 backup
+
+SSTORE --> PATHS : P.snippets 경로
+SSTORE --> SNIP : 스니펫 .sql 파일
+
+CONNS --> SETTINGS : (설정과 별개)
+CONNS --> CONNSFILE : connections.json
+CONNS --> SECRET : encrypt/decrypt
+
+SECRET --> KEYFILE : secret.key 읽기
+
+BRIDGE --> JBRIDGE : spawn() 및 JSON RPC
+JBRIDGE --> ODB : JDBC 접속 및 SQL 실행
+
+LOGGER --> SLOG : index.js 로그
+LOGGER --> CLOG : 각 component 로그
+
+HTTP -.-> WEB : 정적 파일 서빙(/web, /shared, /vendor)
+
+note right of INDEX
+  **진입점**
+  - HTTP 서버 (기본 7070)
+  - 설정 로드
+  - 브리지 기동
+  - /api/* 라우팅 위임
+end note
+
+note right of CONFIG
+  **설정 관리**
+  - 기본값 DEFAULTS
+  - settings.json 병합
+  - 자바/JDBC 경로 해석
+  - BOM 처리
+end note
+
+note right of API
+  **API 라우팅**
+  - POST /api/sql/execute
+  - POST /api/sql/run-script
+  - POST /api/sql/tournament
+  - POST /api/sql/explain
+  - GET /api/meta/*
+  - maxRows: config 기본값 또는 body
+  - clamp 없음!
+end note
+
+note right of BRIDGE
+  **Java 브릿지**
+  - 자식 프로세스 (javac → Build)
+  - JSON RPC 통신
+  - 타임아웃 관리
+end note
+
+note bottom of "저장소 파일"
+  **저장소 전략**
+  - tuning-store: 튜닝 이력 (JSON)
+  - snippet-store: SQL 라이브러리 (.sql)
+  - connections: 접속 프로필 (JSON, 암호화 비밀번호)
+  - 모두 원자적 쓰기 (temp → rename)
+  - 트랜잭션 없음 (파일 기반)
+end note
+
+@enduml

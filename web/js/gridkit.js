@@ -59,6 +59,15 @@ export function setTheme(theme) {
   for (const g of registry) {
     try { g.setTheme(theme); } catch (e) { /* noop */ }
   }
+  // 앱 전체 톤을 테마에 맞추기 위한 <b>전역 훅</b>.
+  //
+  // Open Grid 는 data-og-theme 을 <b>자기 그리드 컨테이너에만</b> 붙인다. 그래서 상단바·
+  // 레일바·에디터·푸터 같은 앱 껍데기는 테마가 바뀐 사실을 알 방법이 없었고, 어떤 테마를
+  // 골라도 흰 바탕 그대로였다(그리드만 색이 바뀌어 "붕뜬다"는 지적의 원인).
+  //
+  // 여기서 <html> 에 표식을 남겨 app.css 가 :root[data-ot-theme="..."] 로 받아쓸 수 있게 한다.
+  // og-* 와 이름을 나누는 이유: 라이브러리 변수와 앱 변수의 소유권을 섞지 않기 위해서다.
+  document.documentElement.dataset.otTheme = theme;
 }
 
 export function setSkin(skin) {

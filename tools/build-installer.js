@@ -1,19 +1,22 @@
 'use strict';
 /**
- * 설치판(윈도우 인스톨러) 빌드. FIX-SPEC-slice-H Phase 4.
+ * 설치판(윈도우 인스톨러) 빌드.
  *
- * NSIS·Inno Setup 이 이 폐쇄망 머신에 없어(D-002 실측) IExpress(윈도우 내장 자가압축 EXE
- * 생성기)를 쓴다. IExpress 는 GUI/SED 파일 모두 "개별 파일" 목록만 다루고 폴더 트리를 그대로
- * 다루는 게 불안정하므로, 배포 파일 전체를 zip 하나(payload.zip)로 묶어 IExpress 에는
- * `payload.zip` + `install-launcher.bat` 딱 2개 파일만 넘긴다. 실행되면:
- *   IExpress 가 자기 자신을 %TEMP% 아래로 풀고 install-launcher.bat 을 실행
- *     → install-launcher.bat 이 tar.exe 로 payload.zip 을 풀고(윈도우 내장, zip 해제 가능 — D-002 실측)
- *     → installer\wizard.ps1(PowerShell WinForms 위저드)을 실행
+ * **Inno Setup**(ISCC.exe)으로 만든다. 스크립트는 `installer/OracleTuner.iss`.
  *
- * 스테이징 구조(installer/wizard.ps1 이 이 구조를 그대로 전제한다 — 같이 바꿔야 한다):
+ * 처음에는 IExpress(윈도우 내장 자가압축)를 썼다. `where iscc` 가 비어 있다는 이유로
+ * "이 머신에 Inno Setup 이 없다"고 판단한 오판 때문이었다 — Inno 는 PATH 를 건드리지 않고
+ * %LOCALAPPDATA%\Programs\Inno Setup 6 에 설치되므로 그렇게 확인하면 안 됐다.
+ * IExpress 판은 자가압축 도구일 뿐이라 이런 대가를 치렀다:
+ *   · 실행하면 콘솔 창이 두 개 뜬다(cmd + powershell)
+ *   · 제거 프로그램 목록에 등록되지 않는다
+ *   · 언어 선택·라이선스 페이지를 PowerShell WinForms 로 전부 손으로 만들어야 했다
+ *   · 서명이 없어 보안 소프트웨어(V3/AppLocker)가 실행을 막았다
+ * Inno 는 앞의 셋이 전부 기본 기능이다. 그래서 갈아탔다.
+ *
+ * 스테이징 구조(installer/OracleTuner.iss 의 [Files] 가 이 구조를 전제한다 — 같이 바꿔야 한다):
  *   server/, web/, shared/, java/(src,out,lib), package.json, LICENSE, node_modules/open-grid
  *   runtime/node.exe (+ 선택적 runtime/jre/)
- *   installer/wizard.ps1, installer/uninstall.ps1, installer/lang.ps1(다국어 문자열 테이블)
  *
  * manifest.json(dist/manifest-<version>.json) — 다음 버전에서 패치 설치파일을 만들 때
  * 이전 버전과 파일 해시를 비교하기 위한 것이다(D-002-a). "app 으로 패치 교체되는 부분"
@@ -74,12 +77,8 @@ function stage(withJre) {
     fs.cpSync(ogSrc, path.join(stageDir, 'node_modules', 'open-grid'), { recursive: true, filter: (from) => !isJunk(from) });
   }
 
-  fs.mkdirSync(path.join(stageDir, 'installer'), { recursive: true });
-  fs.cpSync(path.join(P.root, 'installer', 'wizard.ps1'), path.join(stageDir, 'installer', 'wizard.ps1'));
-  fs.cpSync(path.join(P.root, 'installer', 'uninstall.ps1'), path.join(stageDir, 'installer', 'uninstall.ps1'));
-  // 다국어 문자열 테이블(ko/en/ja/zh) — wizard.ps1/uninstall.ps1 이 dot-source 로 읽는다.
-  // 빠뜨리면 위저드 시작과 동시에 "파일을 찾을 수 없습니다" 로 죽는다 — 반드시 같이 담는다.
-  fs.cpSync(path.join(P.root, 'installer', 'lang.ps1'), path.join(stageDir, 'installer', 'lang.ps1'));
+  // installer/ 는 스테이징에 넣지 않는다. 위저드 UI(언어 선택·라이선스·경로·포트)는
+  // 이제 Inno 가 담당하고, 실행 런처(OracleTuner.vbs)는 .iss 가 직접 가져다 넣는다.
 
   // node/JRE 번들 — tools/build-portable.js 의 로직을 그대로 재사용한다(중복 구현 금지).
   const nodeExe = portable.copyNode(stageDir);
@@ -140,128 +139,66 @@ function buildManifest(stageDir) {
   return { version: VERSION, generatedAt: new Date().toISOString(), files };
 }
 
-// ── zip (payload) — build-portable.js 와 동일한 .NET ZipFile 방식(경로 슬래시 표준 준수) ──
-
-function zip(srcDir, zipPath) {
-  rmrf(zipPath);
-  const ps = [
-    'Add-Type -AssemblyName System.IO.Compression.FileSystem;',
-    '[System.IO.Compression.ZipFile]::CreateFromDirectory(',
-    `'${srcDir}', '${zipPath}',`,
-    '[System.IO.Compression.CompressionLevel]::Optimal, $false)'
-  ].join(' ');
-  const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8' });
-  if (r.status !== 0) throw new Error('payload.zip 압축 실패: ' + (r.stderr || ''));
-  return fs.statSync(zipPath).size;
-}
-
-// ── IExpress SED + 실제 exe 빌드 ────────────────────────────────────────────
-
-function writeLauncherBat(packageDir) {
-  const bat = [
-    '@echo off',
-    'setlocal',
-    'cd /d "%~dp0"',
-    'if exist extracted rmdir /s /q extracted',
-    'mkdir extracted',
-    'tar -xf payload.zip -C extracted',
-    'if errorlevel 1 (',
-    '  echo payload.zip 압축 해제 실패',
-    '  pause',
-    '  exit /b 1',
-    ')',
-    'powershell -NoProfile -ExecutionPolicy Bypass -File "extracted\\installer\\wizard.ps1"',
-    'endlocal'
-  ].join('\r\n');
-  const p = path.join(packageDir, 'install-launcher.bat');
-  fs.writeFileSync(p, bat + '\r\n', 'utf8');
-  return p;
-}
-
-/** IExpress SED(자가압축 EXE 정의) 파일을 만든다. */
-function writeSed(packageDir, sedPath, targetExe, friendlyName) {
-  const sed = [
-    '[Version]',
-    'Class=IEXPRESS',
-    'SEDVersion=3',
-    '[Options]',
-    'PackagePurpose=InstallApp',
-    'ShowInstallProgramWindow=0',
-    'HideExtractAnimation=1',
-    'UseLongFileName=1',
-    'InsideCompressed=0',
-    'CAB_FixedSize=0',
-    'CAB_ResvCodeSigning=0',
-    'RebootMode=N',
-    'InstallPrompt=%InstallPrompt%',
-    'DisplayLicense=%DisplayLicense%',
-    'FinishMessage=%FinishMessage%',
-    'TargetName=%TargetName%',
-    'FriendlyName=%FriendlyName%',
-    'AppLaunched=%AppLaunched%',
-    'PostInstallCmd=%PostInstallCmd%',
-    'AdminQuietInstCmd=%AdminQuietInstCmd%',
-    'UserQuietInstCmd=%UserQuietInstCmd%',
-    'SourceFiles=SourceFiles',
-    '[Strings]',
-    'InstallPrompt=',
-    'DisplayLicense=',
-    'FinishMessage=',
-    `TargetName=${targetExe}`,
-    `FriendlyName=${friendlyName}`,
-    // ★ 반드시 cmd.exe 를 앞에 붙인다.
-    //
-    // AppLaunched 에 .bat 을 그대로 주면 IExpress 가 16비트 COMMAND.COM 으로 실행하려 든다.
-    // 64비트 윈도우에는 COMMAND.COM 이 없어서 실행 즉시 이런 팝업이 뜬다:
-    //   <Command.com /c ...\IXP000.TMP\install-launcher.bat>
-    //   과정 작성 중 오류가 발생하였습니다. 이유: 지정된 파일을 찾을 수 없습니다.
-    // 찾지 못하는 파일은 bat 이 아니라 COMMAND.COM 이다(실제 실행·화면 캡처로 확인).
-    'AppLaunched=cmd.exe /c install-launcher.bat',
-    'PostInstallCmd=<None>',
-    'AdminQuietInstCmd=',
-    'UserQuietInstCmd=',
-    'FILE0=payload.zip',
-    'FILE1=install-launcher.bat',
-    '[SourceFiles]',
-    'SourceFiles0=' + packageDir,
-    '[SourceFiles0]',
-    '%FILE0%=',
-    '%FILE1%='
-  ].join('\r\n');
-  fs.writeFileSync(sedPath, sed + '\r\n', 'utf8');
+/**
+ * ISCC.exe(Inno Setup 컴파일러)를 찾는다.
+ *
+ * PATH 에 없는 게 정상이다 — Inno Setup 은 기본적으로 사용자 폴더
+ * (%LOCALAPPDATA%\Programs\Inno Setup 6)에 설치되고 PATH 를 건드리지 않는다.
+ * 그래서 `where iscc` 만 보고 "없다"고 판단하면 안 된다(실제로 그렇게 오판해
+ * IExpress 로 우회하느라 시간을 버린 적이 있다). 알려진 위치를 모두 뒤진다.
+ */
+function findIscc() {
+  const cands = [
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Inno Setup 6', 'ISCC.exe'),
+    path.join(process.env.ProgramFiles || '', 'Inno Setup 6', 'ISCC.exe'),
+    path.join(process.env['ProgramFiles(x86)'] || '', 'Inno Setup 6', 'ISCC.exe')
+  ];
+  for (const c of cands) if (c && fs.existsSync(c)) return c;
+  const r = spawnSync('where', ['iscc'], { encoding: 'utf8' });
+  if (r.status === 0) {
+    const first = (r.stdout || '').split(/\r?\n/).find((l) => l.trim());
+    if (first && fs.existsSync(first.trim())) return first.trim();
+  }
+  return null;
 }
 
 /**
- * iexpress.exe 로 실제 exe 를 만든다. 실패해도 예외를 던지지 않고 결과 객체로 성패를
- * 알려준다 — 빌드 스크립트가 죽기보다는 "무엇이 안 됐는지"를 그대로 드러내는 편이 낫다
- * (config.js 의 진단 철학과 동일).
+ * Inno Setup 으로 설치 exe 를 만든다.
+ *
+ * IExpress 를 쓰다가 갈아탔다. IExpress 는 자가압축 도구일 뿐이라
+ * 제거 프로그램 등록·언어 선택·라이선스 페이지를 전부 손으로 만들어야 했고,
+ * 실행하면 콘솔 창이 두 개 떴다(cmd + powershell). Inno 는 그게 전부 기본 기능이다.
+ *
+ * 실패해도 예외를 던지지 않고 결과 객체로 알려준다 — 빌드 스크립트가 죽기보다
+ * "무엇이 안 됐는지" 를 드러내는 편이 낫다(config.js 의 진단 철학과 동일).
  */
-function buildExeWithIExpress(stageDir, version, withJre) {
-  const tag = withJre ? 'with-jre' : 'no-jre';
-  const packageDir = path.join(DIST, `_iexpress-package-${tag}`);
-  rmrf(packageDir);
-  fs.mkdirSync(packageDir, { recursive: true });
+function buildExeWithInno(stageDir, version, withJre) {
+  const iscc = findIscc();
+  if (!iscc) {
+    return {
+      ok: false,
+      error: 'ISCC.exe(Inno Setup 6)를 찾지 못했습니다. ' +
+             'winget install JRSoftware.InnoSetup 또는 https://jrsoftware.org 에서 설치하세요.'
+    };
+  }
+  const iss = path.join(P.root, 'installer', 'OracleTuner.iss');
+  if (!fs.existsSync(iss)) return { ok: false, error: `스크립트 없음: ${iss}` };
 
-  console.log('  payload.zip 압축 중...');
-  const zipSize = zip(stageDir, path.join(packageDir, 'payload.zip'));
-  console.log(`  payload.zip: ${(zipSize / 1024 / 1024).toFixed(1)} MB`);
-  writeLauncherBat(packageDir);
+  const outDir = path.join(P.root, 'installer', 'Output');
+  fs.mkdirSync(outDir, { recursive: true });
 
-  const targetExe = path.join(DIST, `OracleTunerSetup-${version}-${tag}.exe`);
-  const sedPath = path.join(packageDir, 'installer.sed');
-  writeSed(packageDir, sedPath, targetExe, `OracleTuner ${version} 설치`);
-
-  rmrf(targetExe);
-  console.log('  iexpress /N /Q 실행 중...');
-  const r = spawnSync('iexpress.exe', ['/N', '/Q', sedPath], { encoding: 'utf8' });
+  console.log(`  ISCC: ${iscc}`);
+  const r = spawnSync(iscc, [`/DSrcDir=${stageDir}`, iss], { encoding: 'utf8' });
+  const targetExe = path.join(outDir, `OracleTuner-${version}-Setup.exe`);
   const ok = r.status === 0 && fs.existsSync(targetExe);
   if (ok) {
     const size = fs.statSync(targetExe).size;
     console.log(`  생성됨: ${path.basename(targetExe)} (${(size / 1024 / 1024).toFixed(1)} MB)`);
     return { ok: true, exePath: targetExe, size };
   }
-  console.log(`  iexpress 실패(status=${r.status}): ${(r.stdout || '') + (r.stderr || '')}`.trim());
-  return { ok: false, error: (r.stderr || r.stdout || `exit ${r.status}`), sedPath, packageDir };
+  const tail = ((r.stdout || '') + (r.stderr || '')).split(/\r?\n/).filter(Boolean).slice(-6).join('\n');
+  console.log(`  ISCC 실패(status=${r.status}):\n${tail}`);
+  return { ok: false, error: tail || `exit ${r.status}` };
 }
 
 // ── 오케스트레이션 ───────────────────────────────────────────────────────────
@@ -276,7 +213,7 @@ function build(withJre) {
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
   console.log(`  manifest: ${path.basename(manifestPath)} (파일 ${manifest.files.length}개)`);
 
-  const exeResult = buildExeWithIExpress(stageDir, VERSION, withJre);
+  const exeResult = buildExeWithInno(stageDir, VERSION, withJre);
 
   return { stageDir, nodeInfo, manifestPath, manifest, exeResult };
 }
@@ -293,7 +230,6 @@ function main() {
     console.log(`  설치 EXE: ${result.exeResult.exePath} (${(result.exeResult.size / 1024 / 1024).toFixed(1)} MB)`);
   } else {
     console.log(`  설치 EXE 생성 실패 — ${result.exeResult.error}`);
-    console.log(`  (수동 확인용 SED: ${result.exeResult.sedPath})`);
   }
 }
 

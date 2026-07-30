@@ -1020,18 +1020,22 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * 서브그리드(masterDetail) 상세 패널 — 휠이 끝에서 막히던 문제 (항목 #8)
+ * 서브그리드(masterDetail) 상세 패널
  *
- * 라이브러리가 상세 패널을 만들 때 style.cssText 로 overscroll-behavior:contain 을
- * 인라인으로 박는다 (node_modules/open-grid/dist/OpenGrid-*.js 의 detail 렌더러,
- * id="og-detail-<rowId>" 요소). contain 은 스크롤 체이닝을 끊기 때문에,
- * 상세 패널 안쪽 스크롤이 끝에 닿아도 바깥 그리드로 이어지지 않는다.
- * → 마우스가 상세 패널 위에 있으면 휠이 "막힌" 것처럼 느껴진다.
- *   발주자 표현: "서브그리드 마우스 휠로 끝까지 보지 못할 경우 있음."
+ * 1) 배경색 — 라이브러리는 상세 패널 배경을 var(--og-detail-bg, #fff) 로 읽는데,
+ *    이 변수를 <b>라이브러리 테마도 우리도 정의한 적이 없다</b>. 그래서 폴백 #fff 가 걸려
+ *    모든 테마에서 상세 패널만 흰 바탕이었다. dark 계열에서는 밝은 본문색(--text)이
+ *    흰 배경에 얹혀 글자가 희미해 읽을 수 없었다(발주자 보고).
+ *    앱 패널색을 따르게 해 테마와 함께 움직이게 한다.
  *
- * 인라인 스타일이라 일반 규칙으로는 이길 수 없다. !important 가 필요하다
- * (CSS 캐스케이드상 author !important > author inline). 실측으로 확인했다.
+ * 2) 휠 스크롤 — 앞서 overscroll-behavior 를 auto 로 덮어 스크롤 체이닝을 열었으나,
+ *    그러자 상세 패널 끝에서 바깥 그리드로 스크롤이 튀어 오히려 더 어지러워졌다
+ *    (발주자: "마우스휠 움직이면 스크롤이 엉망"). 라이브러리 기본값 contain 이
+ *    <b>중첩 스크롤에서는 옳은 선택</b>이므로 그 오버라이드를 걷어낸다.
+ *    원래 불편의 실제 원인은 체이닝이 아니라 상세 패널이 너무 낮았던 것이라,
+ *    gridkit 쪽에서 높이를 키우고 확대 팝업으로 보완한다.
  * ───────────────────────────────────────────────────────────────────────────── */
-[id^="og-detail-"] {
-  overscroll-behavior: auto !important;
+:root {
+  --og-detail-bg: var(--panel);
 }
+.detail-panel { color: var(--text); }

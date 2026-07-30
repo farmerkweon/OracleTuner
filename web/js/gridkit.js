@@ -184,7 +184,11 @@ export function renderPlan(host, plan) {
     rowNumber: false,
     masterDetail: {
       enabled: true,
-      height: 170,
+      // 라이브러리가 heightMode:'auto' 를 무시하고 이 값을 고정 높이로 쓴다.
+      // 170 은 접근/필터 술어가 두어 줄만 되어도 잘려서, 좁은 창 안에서 휠을 굴려야 했다.
+      // 그 불편이 "휠로 끝까지 못 본다"는 보고의 실제 원인이었다. 대부분의 계획 상세가
+      // 한눈에 들어오도록 키운다. 그래도 넘치면 확대 팝업(우측 상단 버튼)으로 본다.
+      height: 260,
       heightMode: 'auto',
       expandMultiple: true,
       renderer: (row, hostEl) => {
@@ -253,7 +257,8 @@ export function renderFindings(host, findings, onFix) {
     columns,
     masterDetail: {
       enabled: true,
-      height: 200,
+      // 진단 상세도 같은 이유로 키운다(위 renderPlan 주석 참조).
+      height: 280,
       heightMode: 'auto',
       expandMultiple: true,
       renderer: (row, hostEl) => {

@@ -110,6 +110,8 @@ function matchParen(m, openIdx) {
  * @param {string[]} [input.resultColumns] describeQuery 로 얻은 결과 컬럼명(SELECT * 펼치기에 사용)
  * @param {object} [input.plan]           원본 실행계획(있으면 계획 기반 후보를 더 만든다)
  * @param {object} [input.options]        {maxCandidates, includeExperimental}
+ * @param {number|null} [input.dbMajorVersion] 접속 DB 의 메이저 버전(예: 11, 19). 모르면 null —
+ *   버전 미상일 때는 12c+ 전제 후보(FETCH FIRST 등)를 그대로 만든다(회귀 방지).
  * @returns {{candidates:Array, skipped:Array, structure:object}}
  */
 function generate(input) {
@@ -125,6 +127,9 @@ function generate(input) {
     meta: input.meta || {},
     plan: input.plan || null,
     resultColumns: input.resultColumns || [],
+    dbMajorVersion: (input.dbMajorVersion === null || input.dbMajorVersion === undefined)
+      ? null
+      : Number(input.dbMajorVersion),
     out: [],
     skipped: []
   };
@@ -196,6 +201,35 @@ function stripSemi(s) {
 /** 중복 판정용 키 — 공백만 정규화하고 나머지는 원문 그대로 본다. */
 function dedupKey(sql) {
   return String(sql || '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * DB 버전 문자열에서 메이저 버전(정수)만 뽑는다. 순수 함수.
+ *
+ * 지원 입력 예:
+ *  - "11.2"                                                     → 11
+ *  - "19.0"                                                     → 19
+ *  - "Oracle Database 11g Enterprise Edition Release 11.2.0.4.0" → 11
+ *  - null / undefined / 숫자를 못 찾는 문자열                    → null
+ */
+function parseDbMajorVersion(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? Math.trunc(v) : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  // "11.2", "19.0.0", "Release 11.2.0.4.0" 같은 major.minor(.*) 패턴을 우선한다.
+  const dotted = s.match(/(\d{1,3})(?:\.\d+){1,}/);
+  if (dotted) {
+    const n = Number(dotted[1]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  // "11g", "19c" 같은 Oracle 마케팅 버전 표기(점 표기가 없는 경우)만 보조로 허용한다.
+  const marketing = s.match(/\b(\d{1,3})[gc]\b/i);
+  if (marketing) {
+    const n = Number(marketing[1]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -733,8 +767,36 @@ function rewriteRownumToFetchFirst(ctx) {
     else if (next && next.type === 'keyword' && next.value.toUpperCase() === 'AND') end = next.end;
     else if (prev && prev.type === 'keyword' && prev.value.toUpperCase() === 'WHERE') start = prev.start;
 
-    let next2 = splice(sql, start, end, ' ');
-    next2 = next2.replace(/\s+$/, '') + `\nFETCH FIRST ${n} ROWS ONLY`;
+    const removed = splice(sql, start, end, ' ').replace(/\s+$/, '');
+
+    // DB 메이저 버전이 11 이하로 확인된 경우에만 FETCH FIRST(12.1+ 전용, ORA-00933 위험)를 피한다.
+    // 버전이 미상(null)이면 기존 동작(FETCH FIRST)을 그대로 유지한다 — 회귀 방지.
+    const is11gOrOlder = typeof ctx.dbMajorVersion === 'number' && ctx.dbMajorVersion > 0 && ctx.dbMajorVersion <= 11;
+
+    if (is11gOrOlder) {
+      const inlineSql = `SELECT * FROM (\n${removed}\n) WHERE ROWNUM <= ${n}`;
+      ctx.out.push(cand({
+        id: 'RW_ROWNUM_INLINEVIEW',
+        strategy: 'FIX_ROWNUM_TOPN_INLINEVIEW',
+        title: 'ROWNUM 상위 N건 → 인라인뷰 정렬 후 ROWNUM (결과 정확성 교정)',
+        category: 'rewrite',
+        risk: 'semantic',
+        riskNote:
+          '원본과 결과가 <b>달라지는 것이 정상</b>입니다. ROWNUM 은 정렬 전에 붙으므로 원본은 ' +
+          '"정렬된 상위 N건"이 아니라 "아무 N건을 뽑아 정렬한 것"이었기 때문입니다.',
+        rationale:
+          'ROWNUM 은 정렬보다 먼저 평가됩니다. 같은 레벨에서 ORDER BY 와 함께 쓰면 의도한 상위 N건이 나오지 않습니다. ' +
+          `접속한 DB 가 ${ctx.dbMajorVersion} 버전(12c 미만)이라 FETCH FIRST 를 쓸 수 없어, 정렬을 인라인뷰로 ` +
+          '감싸고 바깥에서 ROWNUM 을 거는 방식으로 같은 정확성 교정 효과를 냅니다.',
+        expectation:
+          '성능보다 <b>정확성</b>을 위한 후보입니다. 검증이 "결과 다름"으로 나오면 원본이 틀렸던 것이니 이 안을 채택하세요.',
+        sql: inlineSql,
+        changes: [`WHERE ROWNUM ${op.value} ${num.value} 제거 → 인라인뷰로 감싸고 바깥에서 WHERE ROWNUM <= ${n} 추가(11g 이하 호환)`]
+      }));
+      return;
+    }
+
+    const next2 = removed + `\nFETCH FIRST ${n} ROWS ONLY`;
 
     ctx.out.push(cand({
       id: 'RW_FETCH_FIRST',
@@ -1346,4 +1408,4 @@ function fmtPct(v) {
   return `${n >= 0 ? '' : '+'}${Math.abs(n).toFixed(1)}%${n >= 0 ? ' 감소' : ' 증가'}`;
 }
 
-module.exports = { generate, rank, RISK_LABEL, GRADE_LABEL };
+module.exports = { generate, rank, RISK_LABEL, GRADE_LABEL, parseDbMajorVersion };

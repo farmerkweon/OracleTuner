@@ -621,7 +621,8 @@ function planRules(ctx) {
       findings.push(finding('PLAN_LARGE_SORT', 'medium', 'plan',
         `대량 정렬: 예상 ${fmt(card)}행`,
         'PGA 를 넘으면 임시 테이블스페이스로 디스크 정렬이 발생해 급격히 느려집니다.',
-        '정렬 순서와 같은 인덱스를 이용하면 정렬 자체를 없앨 수 있습니다. 상위 N건만 필요하면 FETCH FIRST 로 줄이세요.',
+        '정렬 순서와 같은 인덱스를 이용하면 정렬 자체를 없앨 수 있습니다. 상위 N건만 필요하면 12c 이상에서는 ' +
+          'FETCH FIRST 로, 11g 이하에서는 인라인뷰로 감싸고 바깥에서 ROWNUM 을 걸어 줄이세요.',
         { planId: r.id }));
     }
     if (op.includes('REMOTE')) {

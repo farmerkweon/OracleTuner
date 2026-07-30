@@ -47,6 +47,18 @@ function sessionId(body) {
   return sid;
 }
 
+/**
+ * 세션의 DB 메이저 버전을 알아낸다(숫자|null). 접속(connect) 시 캐시해 둔 sessionMeta 만 읽는다 —
+ * capabilities/serverInfo 를 후보 생성마다 새로 호출하지 않는다(느려짐).
+ */
+function dbMajorVersionFor(sid) {
+  if (!sid) return null;
+  const meta = sessionMeta.get(sid);
+  const server = meta && meta.server;
+  if (!server) return null;
+  return candidates.parseDbMajorVersion(server.databaseVersion || server.banner || null);
+}
+
 // ── 라우트 테이블 ───────────────────────────────────────────────────────────
 
 const routes = [];
@@ -558,6 +570,7 @@ route('POST', '/api/sql/candidates', async ({ body }) => {
     meta: { columnTypes: meta.columnTypes, indexes: meta.indexes, tableStats: meta.tableStats },
     resultColumns: meta.resultColumns,
     plan: meta.plan,
+    dbMajorVersion: dbMajorVersionFor(sid),
     options: {
       maxCandidates: Number(body.maxCandidates) || 16,
       includeExperimental: body.includeExperimental !== false
@@ -599,6 +612,7 @@ route('POST', '/api/sql/tournament', async ({ body }) => {
       sql,
       meta: { columnTypes: meta.columnTypes, indexes: meta.indexes, tableStats: meta.tableStats },
       resultColumns: meta.resultColumns,
+      dbMajorVersion: dbMajorVersionFor(sid),
       options: {
         maxCandidates: Number(body.maxCandidates) || 12,
         includeExperimental: body.includeExperimental !== false

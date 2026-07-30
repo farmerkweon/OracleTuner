@@ -34,7 +34,8 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.map': 'application/json; charset=utf-8',
-  '.txt': 'text/plain; charset=utf-8'
+  '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8'
 };
 
 /** 정적 파일을 서빙할 루트들. 앞에서부터 찾는다. */

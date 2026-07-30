@@ -55,6 +55,7 @@ body {
   display: flex;
   flex-direction: column;
 }
+body.modal-open { overflow: hidden; }
 
 button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 
@@ -526,6 +527,8 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
   width: min(940px, 94vw); max-height: 90vh; display: flex; flex-direction: column;
 }
 .modal-narrow { width: min(560px, 94vw); }
+.modal-xl { width: min(1200px, 96vw); height: min(860px, 92vh); }
+.modal-xl .modal-body { flex: 1; min-height: 0; }
 .modal-head {
   display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border);
 }
@@ -791,8 +794,9 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .tag-pill.risk { background: var(--danger-soft); color: var(--danger); }
 .tag-pill.warn { background: var(--warn-soft); color: var(--warn); }
 
-.detail-panel { padding: 12px 16px; font-size: 12.5px; line-height: 1.75; }
-.detail-panel h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--primary); }
+.detail-panel { position: relative; padding: 12px 16px; font-size: 12.5px; line-height: 1.75; }
+.detail-panel h4 { margin: 0 0 6px; padding-right: 30px; font-size: 12.5px; color: var(--primary); }
+.detail-expand-btn { position: absolute; top: 8px; right: 10px; z-index: 3; }
 .detail-panel .dp-block { margin-bottom: 10px; }
 .detail-panel .dp-label { font-weight: 700; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
 .detail-panel code, .detail-panel pre {

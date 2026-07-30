@@ -17,7 +17,7 @@
 import { $, el, esc, safeHtml, toast, logMsg, errText, fmtMs, fmtNum, fmtBig, withBusy, copyToClipboard } from '../util.js';
 import { api, session } from '../api.js';
 import { t } from '../i18n.js';
-import { makeGrid, renderTable, renderCompareChart } from '../gridkit.js';
+import { makeGrid, renderTable, renderCompareChart, wireDetailExpand } from '../gridkit.js';
 
 const state = {
   generated: null,   // 후보 생성 결과
@@ -128,7 +128,11 @@ function renderGenerated(r) {
     filterable: false,
     masterDetail: {
       enabled: true, height: 280, heightMode: 'auto', expandMultiple: true,
-      renderer: (row, hostEl) => { hostEl.innerHTML = candDetailHtml(row, null); wireDetailButtons(hostEl, row); }
+      renderer: (row, hostEl) => {
+        const draw = (target) => { target.innerHTML = candDetailHtml(row, null); wireDetailButtons(target, row); };
+        draw(hostEl);
+        wireDetailExpand(hostEl, row.title, draw);
+      }
     }
   });
   grid.setData(r.candidates.map((c, i) => ({
@@ -273,8 +277,9 @@ function renderResult(r) {
       masterDetail: {
         enabled: true, height: 340, heightMode: 'auto', expandMultiple: true,
         renderer: (row, hostEl) => {
-          hostEl.innerHTML = candDetailHtml(row, ranking.baseline);
-          wireDetailButtons(hostEl, row);
+          const draw = (target) => { target.innerHTML = candDetailHtml(row, ranking.baseline); wireDetailButtons(target, row); };
+          draw(hostEl);
+          wireDetailExpand(hostEl, row.title, draw);
         }
       }
     });
@@ -313,8 +318,9 @@ function renderResult(r) {
       masterDetail: {
         enabled: true, height: 300, heightMode: 'auto',
         renderer: (row, hostEl) => {
-          hostEl.innerHTML = candDetailHtml(row, ranking.baseline);
-          wireDetailButtons(hostEl, row);
+          const draw = (target) => { target.innerHTML = candDetailHtml(row, ranking.baseline); wireDetailButtons(target, row); };
+          draw(hostEl);
+          wireDetailExpand(hostEl, row.title, draw);
         }
       }
     });

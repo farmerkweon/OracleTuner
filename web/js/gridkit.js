@@ -8,6 +8,7 @@
 import { OpenGrid } from '/vendor/open-grid/open-grid.js';
 import { esc, safeHtml, fmtBig } from './util.js';
 import { t } from './i18n.js';
+import { icon } from './icons.js';
 
 const registry = new Set();
 let currentTheme = 'default';
@@ -178,7 +179,9 @@ export function renderPlan(host, plan) {
       heightMode: 'auto',
       expandMultiple: true,
       renderer: (row, hostEl) => {
-        hostEl.innerHTML = planDetailHtml(row);
+        const draw = (target) => { target.innerHTML = planDetailHtml(row); };
+        draw(hostEl);
+        wireDetailExpand(hostEl, `${row.opFull || ''}${row.objFull ? ' — ' + row.objFull : ''}`, draw);
       }
     }
   });
@@ -245,11 +248,15 @@ export function renderFindings(host, findings, onFix) {
       heightMode: 'auto',
       expandMultiple: true,
       renderer: (row, hostEl) => {
-        hostEl.innerHTML = findingDetailHtml(row);
-        if (row.autoFixable && onFix) {
-          const btn = hostEl.querySelector('[data-fix]');
-          if (btn) btn.addEventListener('click', () => onFix(row));
-        }
+        const draw = (target) => {
+          target.innerHTML = findingDetailHtml(row);
+          if (row.autoFixable && onFix) {
+            const btn = target.querySelector('[data-fix]');
+            if (btn) btn.addEventListener('click', () => onFix(row));
+          }
+        };
+        draw(hostEl);
+        wireDetailExpand(hostEl, row.title, draw);
       }
     }
   });
@@ -383,4 +390,105 @@ export function renderTable(host, rows, columnDefs, gridOpts) {
   const grid = makeGrid(host, { columns, ...(gridOpts || {}) });
   grid.setData(rows);
   return grid;
+}
+
+// ── 서브그리드 상세 확대 팝업 ────────────────────────────────────────────
+// masterDetail 패널은 라이브러리 제약으로 높이가 고정된다(heightMode:'auto' 무시됨).
+// 내용이 길면 이 팝업으로 크게 다시 그린다. 콘텐츠는 각 호출부의 렌더 함수를 재사용한다.
+
+let _detailModal = null;
+let _detailModalLastFocus = null;
+
+function _ensureDetailModal() {
+  if (_detailModal) return _detailModal;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.hidden = true;
+  backdrop.innerHTML = `
+    <div class="modal modal-xl" role="dialog" aria-modal="true"
+         aria-labelledby="grid-detail-modal-title" tabindex="-1">
+      <div class="modal-head">
+        <h2 id="grid-detail-modal-title"></h2>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost btn-sm" data-close>✕</button>
+      </div>
+      <div class="modal-body"></div>
+    </div>`;
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('[data-close]').addEventListener('click', closeDetailModal);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeDetailModal(); });
+  backdrop.addEventListener('keydown', _onDetailModalKeydown);
+  _detailModal = backdrop;
+  return backdrop;
+}
+
+function _focusableIn(root) {
+  return Array.from(root.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  )).filter((el) => !el.disabled && el.offsetParent !== null);
+}
+
+function _onDetailModalKeydown(e) {
+  if (!_detailModal || _detailModal.hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeDetailModal(); return; }
+  if (e.key === 'Tab') {
+    const f = _focusableIn(_detailModal);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+
+/**
+ * 서브그리드 상세를 확대 모달로 연다.
+ * @param {string} title 모달 제목(상세 패널의 <h4> 와 같은 문자열을 재사용할 것)
+ * @param {(bodyEl: HTMLElement) => void} render 모달 본문에 내용을 그리는 콜백.
+ *   masterDetail 렌더러가 인라인 패널에 쓰던 것과 같은 렌더 함수를 새 대상 엘리먼트로 다시 부른다.
+ */
+export function openDetailModal(title, render) {
+  const backdrop = _ensureDetailModal();
+  backdrop.querySelector('#grid-detail-modal-title').textContent = title || '';
+  const body = backdrop.querySelector('.modal-body');
+  body.innerHTML = '';
+  render(body);
+  _detailModalLastFocus = document.activeElement;
+  backdrop.hidden = false;
+  document.body.classList.add('modal-open');
+  const f = _focusableIn(backdrop);
+  (f[0] || backdrop.querySelector('.modal')).focus();
+}
+
+export function closeDetailModal() {
+  if (!_detailModal || _detailModal.hidden) return;
+  _detailModal.hidden = true;
+  document.body.classList.remove('modal-open');
+  if (_detailModalLastFocus && typeof _detailModalLastFocus.focus === 'function') {
+    _detailModalLastFocus.focus();
+  }
+  _detailModalLastFocus = null;
+}
+
+/**
+ * masterDetail 렌더러 안에서 호출한다. 인라인 패널(hostEl) 안에 확대 버튼을 하나 붙이고,
+ * 클릭 시 같은 renderContent 를 새 대상(모달 본문)에 다시 그리게 한다.
+ * @param {HTMLElement} hostEl masterDetail 렌더러가 받는 그 hostEl (내용은 이미 채워져 있어야 함)
+ * @param {string} title 모달 제목
+ * @param {(target: HTMLElement) => void} renderContent hostEl 을 채울 때 쓴 것과 동일한 렌더 로직
+ */
+export function wireDetailExpand(hostEl, title, renderContent) {
+  const panel = hostEl.querySelector(':scope > .detail-panel') || hostEl;
+  if (panel.querySelector(':scope > .detail-expand-btn')) return; // 재호출 시 중복 삽입 방지
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-icon btn-ghost detail-expand-btn';
+  btn.title = '크게 보기';
+  btn.setAttribute('aria-label', '크게 보기');
+  let svg = icon('arrows-fullscreen', 14);
+  // renderIcon() 은 미등록 role 이어도 빈 <svg></svg> 셸을 돌려줄 수 있어(빈 문자열이 아님) 단순
+  // truthy 체크로는 못 거른다 — 실제로 그릴 요소(path/use 등)가 있는지까지 확인해야 폴백이 동작한다.
+  if (!svg || !/<(path|use|circle|rect|polygon|polyline|line|ellipse)\b/i.test(svg)) svg = icon('search', 14); // 폴백 — 구현 후 실제 렌더 여부 확인 필수
+  btn.innerHTML = `<span class="ic">${svg}</span>`;
+  btn.addEventListener('click', () => openDetailModal(title, renderContent));
+  panel.prepend(btn);
 }

@@ -275,6 +275,7 @@ route('POST', '/api/sql/execute', async ({ body }) => {
     collectStats: body.collectStats !== false,
     hashResult: body.hashResult !== false,
     keepRows: body.keepRows !== false,
+    keepRowsMax: Number(body.keepRowsMax) || cfg.execution.keepRowsMax,
     gatherPlanStats: !!body.gatherPlanStats,
     safeMode: body.safeMode !== undefined ? !!body.safeMode : cfg.execution.safeMode
   };

@@ -78,6 +78,10 @@ function copyAll(stage) {
     fs.mkdirSync(path.join(stage, dir), { recursive: true });
     fs.writeFileSync(path.join(stage, dir, '.gitkeep'), '');
   }
+  // 항목 #6(설치판) — 이 파일이 있으면 server/paths.js 가 '포터블 모드'로 판정해 데이터를
+  // 앱 폴더 상대경로에 둔다(USB 이동성 유지). 설치판(installer/wizard.ps1)이 만드는 배포본에는
+  // 이 마커가 없으므로 대신 %LOCALAPPDATA% 를 쓴다 — 두 배포 형태가 이 파일 하나로 갈린다.
+  fs.writeFileSync(path.join(stage, 'portable.marker'), '');
 }
 
 /** Node 런타임을 함께 넣는다(진짜 포터블이 되려면 필요). */
@@ -262,4 +266,6 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { build, VERSION };
+// copyNode/buildJre 도 내보낸다 — tools/build-installer.js(항목 #6 Phase 4) 가 설치판에
+// 번들할 node/JRE 를 만들 때 이 로직을 그대로 재사용한다(중복 구현 금지).
+module.exports = { build, VERSION, copyNode, buildJre };

@@ -207,7 +207,12 @@ async function main() {
 
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
-      log.error(`포트 ${port} 가 이미 사용 중입니다. config/settings.json 의 server.port 를 바꾸세요.`);
+      // 자동으로 다른 포트로 옮기지 않는다 — 사용자가 북마크한 주소가 말없이 바뀌면 더 혼란스럽다
+      // (FIX-SPEC-slice-H Phase 2). 대신 무엇이 문제고 어떻게 고치는지 명확히 안내한다.
+      // 설정 파일 위치는 실행 모드(개발/포터블/설치)에 따라 달라지므로 P.settingsFile 로 실제
+      // 경로를 그대로 보여준다(Phase 1 의 데이터 경로 분리와 짝이 맞아야 한다).
+      log.error(`포트 ${port} 가 이미 사용 중입니다. 다른 프로그램이 그 포트를 쓰고 있는지 확인하거나, `
+        + `${P.settingsFile} 파일의 server.port 값을 사용 가능한 포트로 바꾼 뒤 다시 실행하세요.`);
       process.exit(1);
     }
     log.error(`서버 오류: ${e.message}`);

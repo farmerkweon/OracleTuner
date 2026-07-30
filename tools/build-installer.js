@@ -13,7 +13,7 @@
  * 스테이징 구조(installer/wizard.ps1 이 이 구조를 그대로 전제한다 — 같이 바꿔야 한다):
  *   server/, web/, shared/, java/(src,out,lib), package.json, LICENSE, node_modules/open-grid
  *   runtime/node.exe (+ 선택적 runtime/jre/)
- *   installer/wizard.ps1, installer/uninstall.ps1
+ *   installer/wizard.ps1, installer/uninstall.ps1, installer/lang.ps1(다국어 문자열 테이블)
  *
  * manifest.json(dist/manifest-<version>.json) — 다음 버전에서 패치 설치파일을 만들 때
  * 이전 버전과 파일 해시를 비교하기 위한 것이다(D-002-a). "app 으로 패치 교체되는 부분"
@@ -77,6 +77,9 @@ function stage(withJre) {
   fs.mkdirSync(path.join(stageDir, 'installer'), { recursive: true });
   fs.cpSync(path.join(P.root, 'installer', 'wizard.ps1'), path.join(stageDir, 'installer', 'wizard.ps1'));
   fs.cpSync(path.join(P.root, 'installer', 'uninstall.ps1'), path.join(stageDir, 'installer', 'uninstall.ps1'));
+  // 다국어 문자열 테이블(ko/en/ja/zh) — wizard.ps1/uninstall.ps1 이 dot-source 로 읽는다.
+  // 빠뜨리면 위저드 시작과 동시에 "파일을 찾을 수 없습니다" 로 죽는다 — 반드시 같이 담는다.
+  fs.cpSync(path.join(P.root, 'installer', 'lang.ps1'), path.join(stageDir, 'installer', 'lang.ps1'));
 
   // node/JRE 번들 — tools/build-portable.js 의 로직을 그대로 재사용한다(중복 구현 금지).
   const nodeExe = portable.copyNode(stageDir);
@@ -206,7 +209,14 @@ function writeSed(packageDir, sedPath, targetExe, friendlyName) {
     'FinishMessage=',
     `TargetName=${targetExe}`,
     `FriendlyName=${friendlyName}`,
-    'AppLaunched=install-launcher.bat',
+    // ★ 반드시 cmd.exe 를 앞에 붙인다.
+    //
+    // AppLaunched 에 .bat 을 그대로 주면 IExpress 가 16비트 COMMAND.COM 으로 실행하려 든다.
+    // 64비트 윈도우에는 COMMAND.COM 이 없어서 실행 즉시 이런 팝업이 뜬다:
+    //   <Command.com /c ...\IXP000.TMP\install-launcher.bat>
+    //   과정 작성 중 오류가 발생하였습니다. 이유: 지정된 파일을 찾을 수 없습니다.
+    // 찾지 못하는 파일은 bat 이 아니라 COMMAND.COM 이다(실제 실행·화면 캡처로 확인).
+    'AppLaunched=cmd.exe /c install-launcher.bat',
     'PostInstallCmd=<None>',
     'AdminQuietInstCmd=',
     'UserQuietInstCmd=',

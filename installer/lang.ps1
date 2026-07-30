@@ -1,0 +1,386 @@
+﻿<#
+.SYNOPSIS
+  설치 위저드(wizard.ps1) / 제거 스크립트(uninstall.ps1) 공용 다국어 문자열 테이블.
+
+.DESCRIPTION
+  앱 본체(web/js/i18n.js)와 별개로 둔다 — 위저드는 순수 PowerShell 이라 JS 파일을 직접
+  읽을 수 없다. 4로케일(ko/en/ja/zh) 모두 값이 있어야 하며, 누락 시 Get-Str 이 en 으로
+  폴백한다(그래도 wizard.ps1 -SelfTest 가 누락 자체를 잡아낸다 — 조용히 넘어가지 않는다).
+
+  키 이름 규칙: '<영역>.<의미>' (예: step3.verify). 서식이 필요한 문자열은 {0} {1} ... 을
+  넣어 두고 호출부에서 -f 연산자로 채운다.
+#>
+
+$Strings = @{
+  ko = @{
+    'lang.selectorLabel'                 = '언어:'
+    'wizard.title'                       = 'OracleTuner 설치'
+    'wizard.heading'                     = 'OracleTuner 설치 위저드'
+    'common.cancel'                      = '취소'
+    'common.back'                        = '< 이전'
+    'common.next'                        = '다음 >'
+    'common.install'                     = '설치'
+    'common.close'                       = '닫기'
+    'common.browseFolder'                = '찾아보기...'
+    'step.progress.1'                    = '1/5 · 환영 및 라이선스'
+    'step.progress.2'                    = '2/5 · 설치 경로'
+    'step.progress.3'                    = '3/5 · Java 선택'
+    'step.progress.4'                    = '4/5 · 포트 지정'
+    'step.progress.5'                    = '5/5 · 요약 및 설치'
+    'step1.intro'                        = 'Oracle SQL 튜닝 워크벤치를 설치합니다. 계속하려면 아래 라이선스(MIT)에 동의하세요.'
+    'step1.acceptLicense'                = '라이선스 조건에 동의합니다.'
+    'step1.licenseRequiredWarning'       = '라이선스에 동의해야 계속할 수 있습니다.'
+    'license.summary'                    = '이 소프트웨어는 MIT 라이선스로 배포됩니다. 자유롭게 사용·수정·배포할 수 있으며, 저작권 표시를 유지해야 합니다. 무보증입니다.'
+    'license.authoritativeNote'          = '⚠ 아래 영문 원문이 정본입니다. 위 설명은 이해를 돕기 위한 참고용 번역일 뿐 법적 효력이 없습니다.'
+    'step2.pathLabel'                    = '설치 경로를 선택하세요.'
+    'step2.folderDialogDescription'      = '설치할 폴더를 선택하세요'
+    'step2.programFilesWarning'          = "⚠ Program Files 아래는 관리자 권한이 있어야 설치할 수 있습니다.`r`n접속정보·SQL 이력 등 데이터는 이 폴더가 아니라 항상 %LOCALAPPDATA%\OracleTuner 에 저장되므로, 이 폴더의 쓰기 권한과 무관하게 안전합니다."
+    'step2.pathRequiredWarning'          = '설치 경로를 입력하세요.'
+    'step3.javaLabel'                    = 'Java 실행 방식을 선택하세요. (JDK 를 새로 구현하지 않고 기존 탐색 로직을 재사용합니다)'
+    'step3.systemJava'                   = '시스템 JDK/JRE 사용'
+    'step3.discover'                     = '탐색'
+    'step3.browseJava'                   = '찾아보기'
+    'step3.verify'                       = '검증(java -version 실행)'
+    'step3.bundledJava'                  = '내장 JRE 사용 (이 배포판에 포함된 경우만 선택 가능)'
+    'step3.javaFolderDialogDescription'  = 'JDK 또는 JRE 홈 디렉터리를 선택하세요 (bin\java.exe 가 있는 폴더의 상위)'
+    'step3.notFound'                     = 'JDK/JRE 를 찾지 못했습니다. 찾아보기로 직접 지정하세요.'
+    'step3.nodeUnavailable'              = 'node 를 실행할 수 없어 검증하지 못했습니다.'
+    'step3.verified'                     = "확인됨: {0}`r`n{1}"
+    'step3.failed'                       = '실패: {0}'
+    'step4.portLabel'                    = '서버가 사용할 포트를 지정하세요. (127.0.0.1 로만 검사합니다 — 방화벽 팝업 방지)'
+    'step4.findPort'                     = '가용 포트 찾기'
+    'step4.testPort'                     = '테스트'
+    'step4.nodeUnavailableFind'          = 'node 를 실행할 수 없어 탐색하지 못했습니다.'
+    'step4.foundPort'                    = '사용 가능한 포트를 찾았습니다: {0}'
+    'step4.allBusy'                      = '후보 포트가 모두 사용 중입니다. 포트를 직접 입력하고 테스트하세요.'
+    'step4.invalidPort'                  = '1~65535 사이의 숫자를 입력하세요.'
+    'step4.nodeUnavailableTest'          = 'node 를 실행할 수 없어 검사하지 못했습니다.'
+    'step4.portFree'                     = '포트 {0} 는 사용 가능합니다.'
+    'step4.portBusy'                     = '포트 {0} 는 이미 사용 중입니다. 다른 포트를 시도하세요.'
+    'step5.startMenuShortcut'            = '시작 메뉴 바로가기 만들기'
+    'step5.desktopShortcut'              = '바탕화면 바로가기 만들기'
+    'step5.summary.installPath'          = '설치 경로: {0}'
+    'step5.summary.javaMode'             = 'Java 모드: {0}{1}'
+    'step5.summary.port'                 = '포트: {0}'
+    'step5.summary.dataLocation'         = '데이터 저장 위치: {0}'
+    'step5.summary.dataNote'             = '(설치 폴더가 아닌 이 위치에 접속정보·SQL 이력이 저장되므로, Program Files 에 설치해도 안전합니다)'
+    'step5.installSuccess'               = '설치가 완료되었습니다: {0}'
+    'step5.installError'                 = '설치 중 오류: {0}'
+    'uninstall.confirmTitle'             = 'OracleTuner 제거'
+    'uninstall.confirmBody'              = "OracleTuner 를 제거합니다.`r`n설치 폴더: {0}`r`n계속하시겠습니까?"
+    'uninstall.dataConfirmTitle'         = 'OracleTuner 제거 — 사용자 데이터'
+    'uninstall.dataConfirmBody'          = "저장된 접속정보·SQL 이력·설정도 함께 삭제할까요?`r`n위치: {0}`r`n`r`n[예] 를 누르면 데이터까지 완전히 삭제됩니다(되돌릴 수 없음).`r`n[아니오] 를 누르면 프로그램만 지우고 데이터는 남겨 둡니다(나중에 다시 설치하면 이어서 쓸 수 있음)."
+    'uninstall.doneBody'                 = 'OracleTuner 프로그램 파일 제거가 완료되었습니다.'
+  }
+
+  en = @{
+    'lang.selectorLabel'                 = 'Language:'
+    'wizard.title'                       = 'OracleTuner Setup'
+    'wizard.heading'                     = 'OracleTuner Setup Wizard'
+    'common.cancel'                      = 'Cancel'
+    'common.back'                        = '< Back'
+    'common.next'                        = 'Next >'
+    'common.install'                     = 'Install'
+    'common.close'                       = 'Close'
+    'common.browseFolder'                = 'Browse...'
+    'step.progress.1'                    = '1/5 - Welcome & License'
+    'step.progress.2'                    = '2/5 - Install Location'
+    'step.progress.3'                    = '3/5 - Java Selection'
+    'step.progress.4'                    = '4/5 - Port Setup'
+    'step.progress.5'                    = '5/5 - Summary & Install'
+    'step1.intro'                        = 'This installs the Oracle SQL tuning workbench. To continue, please agree to the MIT license below.'
+    'step1.acceptLicense'                = 'I agree to the license terms.'
+    'step1.licenseRequiredWarning'       = 'You must agree to the license to continue.'
+    'license.summary'                    = 'This software is distributed under the MIT License. You may freely use, modify, and distribute it, provided the copyright notice is retained. It is provided without warranty.'
+    'license.authoritativeNote'          = "The English original below is the authoritative text. This summary is a translation aid only and has no legal effect."
+    'step2.pathLabel'                    = 'Choose an installation path.'
+    'step2.folderDialogDescription'      = 'Select the folder to install to'
+    'step2.programFilesWarning'          = "Installing under Program Files requires administrator rights.`r`nConnection info, SQL history, and other data are always stored in %LOCALAPPDATA%\OracleTuner instead of this folder, so it stays safe regardless of this folder's write permissions."
+    'step2.pathRequiredWarning'          = 'Please enter an installation path.'
+    'step3.javaLabel'                    = 'Choose how Java will run. (Reuses the existing discovery logic instead of reimplementing JDK handling.)'
+    'step3.systemJava'                   = 'Use system JDK/JRE'
+    'step3.discover'                     = 'Discover'
+    'step3.browseJava'                   = 'Browse'
+    'step3.verify'                       = 'Verify (run java -version)'
+    'step3.bundledJava'                  = 'Use bundled JRE (only selectable if included in this distribution)'
+    'step3.javaFolderDialogDescription'  = 'Select the JDK or JRE home directory (the parent of the folder containing bin\java.exe)'
+    'step3.notFound'                     = 'No JDK/JRE was found. Use Browse to specify one manually.'
+    'step3.nodeUnavailable'              = 'Could not verify because node could not be run.'
+    'step3.verified'                     = "Verified: {0}`r`n{1}"
+    'step3.failed'                       = 'Failed: {0}'
+    'step4.portLabel'                    = 'Specify the port the server will use. (Checked against 127.0.0.1 only, to avoid firewall prompts.)'
+    'step4.findPort'                     = 'Find available port'
+    'step4.testPort'                     = 'Test'
+    'step4.nodeUnavailableFind'          = 'Could not search because node could not be run.'
+    'step4.foundPort'                    = 'Found an available port: {0}'
+    'step4.allBusy'                      = 'All candidate ports are in use. Enter a port manually and test it.'
+    'step4.invalidPort'                  = 'Enter a number between 1 and 65535.'
+    'step4.nodeUnavailableTest'          = 'Could not check because node could not be run.'
+    'step4.portFree'                     = 'Port {0} is available.'
+    'step4.portBusy'                     = 'Port {0} is already in use. Try a different port.'
+    'step5.startMenuShortcut'            = 'Create Start Menu shortcut'
+    'step5.desktopShortcut'              = 'Create desktop shortcut'
+    'step5.summary.installPath'          = 'Install path: {0}'
+    'step5.summary.javaMode'             = 'Java mode: {0}{1}'
+    'step5.summary.port'                 = 'Port: {0}'
+    'step5.summary.dataLocation'         = 'Data storage location: {0}'
+    'step5.summary.dataNote'             = '(Connection info and SQL history are stored here, not in the install folder, so it is safe to install under Program Files.)'
+    'step5.installSuccess'               = 'Installation complete: {0}'
+    'step5.installError'                 = 'Error during installation: {0}'
+    'uninstall.confirmTitle'             = 'Uninstall OracleTuner'
+    'uninstall.confirmBody'              = "This will uninstall OracleTuner.`r`nInstall folder: {0}`r`nDo you want to continue?"
+    'uninstall.dataConfirmTitle'         = 'Uninstall OracleTuner - User Data'
+    'uninstall.dataConfirmBody'          = "Do you also want to delete the saved connection info, SQL history, and settings?`r`nLocation: {0}`r`n`r`nChoose [Yes] to permanently delete the data as well (cannot be undone).`r`nChoose [No] to remove only the program and keep the data (you can pick up where you left off if you reinstall later)."
+    'uninstall.doneBody'                 = 'OracleTuner program files have been removed.'
+  }
+
+  ja = @{
+    'lang.selectorLabel'                 = '言語:'
+    'wizard.title'                       = 'OracleTuner セットアップ'
+    'wizard.heading'                     = 'OracleTuner セットアップウィザード'
+    'common.cancel'                      = 'キャンセル'
+    'common.back'                        = '< 戻る'
+    'common.next'                        = '次へ >'
+    'common.install'                     = 'インストール'
+    'common.close'                       = '閉じる'
+    'common.browseFolder'                = '参照...'
+    'step.progress.1'                    = '1/5 ・ ようこそ／ライセンス'
+    'step.progress.2'                    = '2/5 ・ インストール先'
+    'step.progress.3'                    = '3/5 ・ Java の選択'
+    'step.progress.4'                    = '4/5 ・ ポート設定'
+    'step.progress.5'                    = '5/5 ・ 確認とインストール'
+    'step1.intro'                        = 'Oracle SQL チューニングワークベンチをインストールします。続行するには、下記の MIT ライセンスに同意してください。'
+    'step1.acceptLicense'                = 'ライセンス条項に同意します。'
+    'step1.licenseRequiredWarning'       = '続行するにはライセンスに同意する必要があります。'
+    'license.summary'                    = '本ソフトウェアは MIT ライセンスの下で配布されています。著作権表示を保持する限り、自由に使用・改変・再配布できます。無保証で提供されます。'
+    'license.authoritativeNote'          = '⚠ 下記の英語原文が正本です。この要約は理解を助けるための参考訳であり、法的効力はありません。'
+    'step2.pathLabel'                    = 'インストール先を選択してください。'
+    'step2.folderDialogDescription'      = 'インストールするフォルダーを選択してください'
+    'step2.programFilesWarning'          = "⚠ Program Files 配下にインストールするには管理者権限が必要です。`r`n接続情報や SQL 履歴などのデータはこのフォルダーではなく常に %LOCALAPPDATA%\OracleTuner に保存されるため、このフォルダーの書き込み権限に関係なく安全です。"
+    'step2.pathRequiredWarning'          = 'インストール先を入力してください。'
+    'step3.javaLabel'                    = 'Java の実行方式を選択してください。(JDK を新規実装せず、既存の検出ロジックを再利用します)'
+    'step3.systemJava'                   = 'システムの JDK/JRE を使用'
+    'step3.discover'                     = '検出'
+    'step3.browseJava'                   = '参照'
+    'step3.verify'                       = '検証 (java -version を実行)'
+    'step3.bundledJava'                  = '内蔵 JRE を使用 (この配布物に含まれている場合のみ選択可能)'
+    'step3.javaFolderDialogDescription'  = 'JDK または JRE のホームディレクトリを選択してください (bin\java.exe があるフォルダーの親)'
+    'step3.notFound'                     = 'JDK/JRE が見つかりませんでした。「参照」で直接指定してください。'
+    'step3.nodeUnavailable'              = 'node を実行できなかったため検証できませんでした。'
+    'step3.verified'                     = "確認済み: {0}`r`n{1}"
+    'step3.failed'                       = '失敗: {0}'
+    'step4.portLabel'                    = 'サーバーが使用するポートを指定してください。(ファイアウォールの確認ダイアログを避けるため 127.0.0.1 でのみ検査します)'
+    'step4.findPort'                     = '利用可能なポートを検索'
+    'step4.testPort'                     = 'テスト'
+    'step4.nodeUnavailableFind'          = 'node を実行できなかったため検索できませんでした。'
+    'step4.foundPort'                    = '利用可能なポートが見つかりました: {0}'
+    'step4.allBusy'                      = '候補ポートはすべて使用中です。ポートを直接入力してテストしてください。'
+    'step4.invalidPort'                  = '1〜65535 の範囲の数値を入力してください。'
+    'step4.nodeUnavailableTest'          = 'node を実行できなかったため確認できませんでした。'
+    'step4.portFree'                     = 'ポート {0} は利用可能です。'
+    'step4.portBusy'                     = 'ポート {0} は既に使用中です。別のポートを試してください。'
+    'step5.startMenuShortcut'            = 'スタートメニューにショートカットを作成'
+    'step5.desktopShortcut'              = 'デスクトップにショートカットを作成'
+    'step5.summary.installPath'          = 'インストール先: {0}'
+    'step5.summary.javaMode'             = 'Java モード: {0}{1}'
+    'step5.summary.port'                 = 'ポート: {0}'
+    'step5.summary.dataLocation'         = 'データ保存先: {0}'
+    'step5.summary.dataNote'             = '(接続情報や SQL 履歴はインストールフォルダーではなくこの場所に保存されるため、Program Files にインストールしても安全です)'
+    'step5.installSuccess'               = 'インストールが完了しました: {0}'
+    'step5.installError'                 = 'インストール中にエラーが発生しました: {0}'
+    'uninstall.confirmTitle'             = 'OracleTuner の削除'
+    'uninstall.confirmBody'              = "OracleTuner を削除します。`r`nインストールフォルダー: {0}`r`n続行しますか?"
+    'uninstall.dataConfirmTitle'         = 'OracleTuner の削除 — ユーザーデータ'
+    'uninstall.dataConfirmBody'          = "保存されている接続情報・SQL 履歴・設定も削除しますか?`r`n場所: {0}`r`n`r`n[はい] を選ぶとデータも完全に削除されます(元に戻せません)。`r`n[いいえ] を選ぶとプログラムのみ削除し、データは残ります(後で再インストールすれば続きから使えます)。"
+    'uninstall.doneBody'                 = 'OracleTuner のプログラムファイルの削除が完了しました。'
+  }
+
+  zh = @{
+    'lang.selectorLabel'                 = '语言:'
+    'wizard.title'                       = 'OracleTuner 安装'
+    'wizard.heading'                     = 'OracleTuner 安装向导'
+    'common.cancel'                      = '取消'
+    'common.back'                        = '< 上一步'
+    'common.next'                        = '下一步 >'
+    'common.install'                     = '安装'
+    'common.close'                       = '关闭'
+    'common.browseFolder'                = '浏览...'
+    'step.progress.1'                    = '1/5 · 欢迎与许可协议'
+    'step.progress.2'                    = '2/5 · 安装路径'
+    'step.progress.3'                    = '3/5 · 选择 Java'
+    'step.progress.4'                    = '4/5 · 端口设置'
+    'step.progress.5'                    = '5/5 · 摘要与安装'
+    'step1.intro'                        = '即将安装 Oracle SQL 调优工作台。请阅读并同意下方的 MIT 许可协议后继续。'
+    'step1.acceptLicense'                = '我同意此许可协议条款。'
+    'step1.licenseRequiredWarning'       = '必须同意许可协议才能继续。'
+    'license.summary'                    = '本软件根据 MIT 许可证发布。您可以自由使用、修改和分发本软件，但须保留版权声明。本软件不提供任何担保。'
+    'license.authoritativeNote'          = '⚠ 以下英文原文为正式文本。此摘要仅为便于理解的参考译文，不具法律效力。'
+    'step2.pathLabel'                    = '请选择安装路径。'
+    'step2.folderDialogDescription'      = '请选择安装文件夹'
+    'step2.programFilesWarning'          = "⚠ 安装到 Program Files 下需要管理员权限。`r`n连接信息、SQL 历史等数据始终保存在 %LOCALAPPDATA%\OracleTuner，而非此文件夹，因此与此文件夹的写入权限无关，是安全的。"
+    'step2.pathRequiredWarning'          = '请输入安装路径。'
+    'step3.javaLabel'                    = '请选择 Java 运行方式。(复用现有的检测逻辑，不重新实现 JDK 处理)'
+    'step3.systemJava'                   = '使用系统 JDK/JRE'
+    'step3.discover'                     = '检测'
+    'step3.browseJava'                   = '浏览'
+    'step3.verify'                       = '验证 (运行 java -version)'
+    'step3.bundledJava'                  = '使用内置 JRE (仅当此发行版包含时可选)'
+    'step3.javaFolderDialogDescription'  = '请选择 JDK 或 JRE 主目录 (即包含 bin\java.exe 的文件夹的上一级)'
+    'step3.notFound'                     = '未找到 JDK/JRE。请使用"浏览"手动指定。'
+    'step3.nodeUnavailable'              = '无法运行 node，因此无法验证。'
+    'step3.verified'                     = "已验证: {0}`r`n{1}"
+    'step3.failed'                       = '失败: {0}'
+    'step4.portLabel'                    = '请指定服务器使用的端口。(仅针对 127.0.0.1 进行检测，以避免防火墙弹窗)'
+    'step4.findPort'                     = '查找可用端口'
+    'step4.testPort'                     = '测试'
+    'step4.nodeUnavailableFind'          = '无法运行 node，因此无法查找。'
+    'step4.foundPort'                    = '已找到可用端口: {0}'
+    'step4.allBusy'                      = '候选端口均已被占用。请手动输入端口并测试。'
+    'step4.invalidPort'                  = '请输入 1 到 65535 之间的数字。'
+    'step4.nodeUnavailableTest'          = '无法运行 node，因此无法检测。'
+    'step4.portFree'                     = '端口 {0} 可用。'
+    'step4.portBusy'                     = '端口 {0} 已被占用，请尝试其他端口。'
+    'step5.startMenuShortcut'            = '创建开始菜单快捷方式'
+    'step5.desktopShortcut'              = '创建桌面快捷方式'
+    'step5.summary.installPath'          = '安装路径: {0}'
+    'step5.summary.javaMode'             = 'Java 模式: {0}{1}'
+    'step5.summary.port'                 = '端口: {0}'
+    'step5.summary.dataLocation'         = '数据存储位置: {0}'
+    'step5.summary.dataNote'             = '(连接信息和 SQL 历史保存在此处，而非安装文件夹，因此即使安装到 Program Files 下也是安全的)'
+    'step5.installSuccess'               = '安装完成: {0}'
+    'step5.installError'                 = '安装过程中出错: {0}'
+    'uninstall.confirmTitle'             = '卸载 OracleTuner'
+    'uninstall.confirmBody'              = "即将卸载 OracleTuner。`r`n安装文件夹: {0}`r`n是否继续?"
+    'uninstall.dataConfirmTitle'         = '卸载 OracleTuner — 用户数据'
+    'uninstall.dataConfirmBody'          = "是否同时删除已保存的连接信息、SQL 历史和设置?`r`n位置: {0}`r`n`r`n选择[是]将彻底删除数据(无法恢复)。`r`n选择[否]仅删除程序，保留数据(以后重新安装可继续使用)。"
+    'uninstall.doneBody'                 = 'OracleTuner 程序文件已删除完成。'
+  }
+}
+
+# ── 언어 판정·조회 유틸 ──────────────────────────────────────────────────────
+
+<#
+.SYNOPSIS
+  OS 표시 언어로 기본 언어를 추정한다. ko/ja/zh 중 하나면 그것, 그 외에는 en.
+#>
+function Get-DefaultLanguage {
+  try {
+    $code = (Get-Culture).TwoLetterISOLanguageName
+  } catch {
+    return 'en'
+  }
+  if (@('ko', 'ja', 'zh') -contains $code) { return $code }
+  return 'en'
+}
+
+<#
+.SYNOPSIS
+  $Lang 로케일의 $Key 문자열을 돌려준다. 없으면 en 으로 폴백, en 에도 없으면 "!Key!" 를
+  돌려준다(화면에서 바로 눈에 띄어 누락을 알아차릴 수 있게 — 조용히 빈 문자열을 주지 않는다).
+#>
+function Get-Str {
+  param(
+    [Parameter(Mandatory = $true)][string]$Lang,
+    [Parameter(Mandatory = $true)][string]$Key
+  )
+  if ($Strings.ContainsKey($Lang) -and $Strings[$Lang].ContainsKey($Key)) {
+    return $Strings[$Lang][$Key]
+  }
+  if ($Strings['en'].ContainsKey($Key)) {
+    return $Strings['en'][$Key]
+  }
+  return "!$Key!"
+}
+
+<#
+.SYNOPSIS
+  로케일별 UI 폰트 이름. 맑은 고딕은 한글·라틴 기준이라 일본어/중국어 화면에서는
+  각 로케일에 흔한 시스템 폰트를 쓰는 편이 자연스럽다.
+#>
+function Get-UiFontName {
+  param([string]$Lang)
+  switch ($Lang) {
+    'ja' { return 'Yu Gothic UI' }
+    'zh' { return 'Microsoft YaHei UI' }
+    default { return '맑은 고딕' }
+  }
+}
+
+<#
+.SYNOPSIS
+  4로케일 문자열 테이블에 키 누락이 있는지 검사한다. en 을 기준 키 집합으로 삼아
+  ko/ja/zh 와 차집합을 비교한다. 빠진 키가 하나도 없어야 통과.
+
+.OUTPUTS
+  [hashtable] 로케일별 누락 키 배열 — 모두 비어 있으면 정상.
+#>
+function Test-StringTableCompleteness {
+  $baseKeys = @($Strings['en'].Keys)
+  $missing = @{}
+  foreach ($lang in @('ko', 'en', 'ja', 'zh')) {
+    $langKeys = @($Strings[$lang].Keys)
+    $miss = @($baseKeys | Where-Object { $langKeys -notcontains $_ })
+    $extra = @($langKeys | Where-Object { $baseKeys -notcontains $_ })
+    $missing[$lang] = @{ Missing = $miss; Extra = $extra }
+  }
+  return $missing
+}
+
+# ── 라이선스 본문 폴백(LICENSE 파일을 못 찾을 때만 사용, 항상 영문 원문) ──────────
+# 리포 루트 LICENSE 파일과 동일한 내용을 담는다. 언어가 무엇이든 원문은 항상 영문이다.
+
+$MitLicenseFallback = @'
+MIT License
+
+Copyright (c) 2026 foxnail
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Third-party components
+
+- Open Grid (data grid & charts) - MIT License
+  https://github.com/farmerkweon/OpenGrid
+- Oracle JDBC Driver (ojdbc) - Oracle Free Use Terms and Conditions (FUTC)
+  Not bundled in this repository. The driver is downloaded separately by the
+  user (see `npm run fetch-driver`) and remains subject to Oracle's own license.
+'@
+
+<#
+.SYNOPSIS
+  라이선스 화면에 표시할 전체 텍스트를 만든다: [로케일 요약 + 정본 안내] + 구분선 + [영문 원문].
+  원문은 SourceRoot\LICENSE 파일에서 읽고, 없으면 $MitLicenseFallback 을 쓴다.
+#>
+function Build-LicenseDisplayText {
+  param(
+    [Parameter(Mandatory = $true)][string]$Lang,
+    [Parameter(Mandatory = $true)][string]$SourceRoot
+  )
+  $summary = Get-Str -Lang $Lang -Key 'license.summary'
+  $note = Get-Str -Lang $Lang -Key 'license.authoritativeNote'
+  $licensePath = Join-Path $SourceRoot 'LICENSE'
+  if (Test-Path $licensePath) {
+    $body = Get-Content $licensePath -Raw
+  } else {
+    $body = $MitLicenseFallback
+  }
+  $divider = '----------------------------------------'
+  return "$summary`r`n$note`r`n`r`n$divider`r`n`r`n$body"
+}

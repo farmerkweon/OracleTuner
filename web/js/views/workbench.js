@@ -14,6 +14,7 @@ import { SqlEditor } from '../editor.js';
 import { open as openLibrary, renderDock } from './library.js';
 import { open as openHintWizard } from './hint-wizard.js';
 import { makeGrid, renderResult, renderPlan, renderFindings, renderTable, renderCompareChart, resizeAll } from '../gridkit.js';
+import { invalidate as invalidateCandidates } from './candidates.js';
 
 const state = {
   editors: { before: null, after: null },
@@ -130,6 +131,36 @@ export function setDoc(side, doc) {
 /** 현재 편집기에 열린 문서 정보(튜닝 저장 시 SQL 연결에 쓴다). */
 export function getDoc(side) { return docState[side]; }
 
+/**
+ * <b>파생 패널</b>(실행계획·진단·튜닝후보·비교검증·계측)을 비운다.
+ *
+ * SQL 을 실행하면 결과 탭만 새로 그려지고 나머지는 이전 SQL 것이 그대로 남아 있었다.
+ * 튜닝 도구에서 이건 단순한 지저분함이 아니라 <b>잘못된 판단의 원인</b>이다 —
+ * 사용자가 A 의 실행계획을 보면서 B 를 튜닝하게 된다.
+ *
+ * 편집기·문서 배지·결과 탭은 건드리지 않는다(그건 resetWorkbench 의 몫).
+ *
+ * @param {'before'|'after'} side 실행한 쪽. 그 쪽의 계획·진단만 버린다.
+ */
+function clearDerivedPanels(side) {
+  state.lastPlan[side] = null;
+  state.lastAnalysis[side] = null;
+  // 비교검증과 튜닝후보는 전/후 <b>쌍</b>을 전제로 만든 결과라, 한쪽만 바뀌어도 무효다.
+  state.lastCompare = null;
+  invalidateCandidates();
+
+  $('#grid-plan').innerHTML = '';
+  $('#plan-text').textContent = '';
+  $('#grid-diag').innerHTML = '';
+  $('#grid-stats').innerHTML = '';
+  $('#verify-body').innerHTML = `<p class="muted pad">${t('verify.intro')}</p>`;
+  $('#cand-body').innerHTML = `<p class="pad muted">${t('cd.intro')}</p>`;
+  for (const id of ['badge-diag', 'badge-cands']) {
+    const b = $('#' + id);
+    if (b) { b.textContent = ''; b.className = 'badge'; }
+  }
+}
+
 /** 워크벤치를 빈 상태로 초기화한다(신규 SQL). 편집기·문서배지·결과패널을 모두 비운다. */
 export function resetWorkbench() {
   state.editors.before.setValue('');
@@ -137,20 +168,13 @@ export function resetWorkbench() {
   setDoc('before', { isNew: true });
   setDoc('after', null);
   state.lastResult = { before: null, after: null };
-  state.lastPlan = { before: null, after: null };
-  state.lastAnalysis = { before: null, after: null };
-  state.lastCompare = null;
   state.lastResultShown = null;
+  // 파생 패널은 양쪽 모두 비운다(같은 규칙을 두 벌 쓰지 않도록 함수를 공유한다)
+  clearDerivedPanels('before');
+  clearDerivedPanels('after');
   // 결과 영역 비우기
   $('#grid-result').innerHTML = `<div class="pad muted">${esc(t('res.empty'))}</div>`;
   $('#result-summary').textContent = t('res.empty');
-  $('#grid-plan').innerHTML = '';
-  $('#plan-text').textContent = '';
-  $('#grid-diag').innerHTML = '';
-  $('#grid-stats').innerHTML = '';
-  $('#verify-body').innerHTML = `<p class="muted pad">${t('verify.intro')}</p>`;
-  $('#cand-body').innerHTML = `<p class="pad muted">${t('cd.intro')}</p>`;
-  for (const id of ['badge-diag', 'badge-cands']) { const b = $('#' + id); b.textContent = ''; b.className = 'badge'; }
   showTab('result');
   state.editors.before.focus();
 }
@@ -251,6 +275,10 @@ async function runSql(side, btn) {
   if (!st.sql.trim()) return toast('실행할 문장이 없습니다.', 'warn');
   ed.markStatement();
 
+  // 이전 SQL 의 계획·진단·후보가 새 결과 옆에 남지 않게 먼저 비운다.
+  // 실행 전에 비워야 질의가 도는 동안에도 낡은 내용이 보이지 않는다.
+  clearDerivedPanels(side);
+
   setRunning(true);
   const t0 = performance.now();
   try {
@@ -311,6 +339,10 @@ async function runScript(side, btn) {
   const tk = globalThis.SqlTokenizer;
   const n = tk ? tk.splitStatements(sql).filter((s) => s.sql.trim()).length : 1;
   if (!confirm(t('wb.runScriptConfirm', { n }))) return;
+
+  // 스크립트 실행도 마찬가지다 — DDL·데모 생성으로 스키마가 바뀌면
+  // 이전 실행계획·진단은 더더욱 믿을 수 없는 값이 된다.
+  clearDerivedPanels(side);
 
   setRunning(true);
   showTab('log');

@@ -45,6 +45,11 @@ public final class Exec {
     /** NULL 을 빈 문자열과 구분하기 위한 표식. */
     private static final String NULL_MARK = "\u0000NULL";
 
+    /** maxRows 로 허용하는 절대 상한. 성능평가를 위해 200만 행까지 소비를 허용한다. */
+    private static final int MAX_ROWS_CAP = 2_000_000;
+    /** 응답에 보관하는 행수의 기본 상한. 이걸 넘는 행은 소비만 하고 버린다(메모리 보호). */
+    private static final int DEFAULT_KEEP_ROWS_MAX = 5_000;
+
     /** 세션 통계 중 튜닝 판단에 쓰는 항목. */
     private static final String[] STAT_NAMES = {
         "session logical reads", "consistent gets", "db block gets", "physical reads",
@@ -116,12 +121,14 @@ public final class Exec {
      * <pre>
      *   sql            실행할 SQL (세미콜론 제거됨)
      *   binds          바인드 값 배열(순서대로). 이름 바인드도 위치로 매핑한다.
-     *   maxRows        최대 인출 행수 (기본 5000, 0=무제한은 허용하지 않음 → 100000 캡)
+     *   maxRows        최대 인출(소비) 행수 (기본 5000, 0=무제한은 허용하지 않음 → MAX_ROWS_CAP(200만) 캡)
      *   fetchSize      JDBC fetch size (기본 1000) — 네트워크 왕복 영향 축소
      *   timeoutSec     질의 타임아웃 (기본 60)
      *   collectStats   세션 통계 수집 여부 (기본 true)
      *   hashResult     결과 지문 계산 여부 (기본 true)
      *   keepRows       행을 반환할지 (기본 true). 벤치마크에서는 false 로 두어 메모리를 아낀다.
+     *   keepRowsMax    응답에 보관(retain)할 행수 상한 (기본 DEFAULT_KEEP_ROWS_MAX=5000).
+     *                  maxRows(소비 상한)와 분리된 개념 — 이걸 넘는 행은 소비만 하고 버린다.
      *   gatherPlanStats /*+ gather_plan_statistics *&#47; 힌트 주입 여부
      *   safeMode       DML/DDL 이면 실행 후 자동 롤백 (기본 true)
      * </pre>
@@ -143,12 +150,14 @@ public final class Exec {
         boolean fullFetch = Json.bool(params, "fullFetch", false);
         int maxRows = Json.intv(params, "maxRows", 5000);
         if (fullFetch) maxRows = Integer.MAX_VALUE;
-        else if (maxRows <= 0 || maxRows > 100000) maxRows = 100000;
+        else if (maxRows <= 0 || maxRows > MAX_ROWS_CAP) maxRows = MAX_ROWS_CAP;
         int fetchSize = Json.intv(params, "fetchSize", 1000);
         int timeoutSec = Json.intv(params, "timeoutSec", 60);
         boolean collectStats = Json.bool(params, "collectStats", true);
         boolean hashResult = Json.bool(params, "hashResult", true);
         boolean keepRows = Json.bool(params, "keepRows", true);
+        int keepRowsMax = Json.intv(params, "keepRowsMax", DEFAULT_KEEP_ROWS_MAX);
+        if (keepRowsMax < 0) keepRowsMax = 0;
         boolean safeMode = Json.bool(params, "safeMode", true);
         Object[] binds = bindArray(params.get("binds"));
 
@@ -177,7 +186,7 @@ public final class Exec {
 
             if (hasResult) {
                 rs = ps.getResultSet();
-                Map<String, Object> body = fetch(rs, maxRows, keepRows, hashResult);
+                Map<String, Object> body = fetch(rs, maxRows, keepRows, keepRowsMax, hashResult);
                 t3 = System.nanoTime();
                 out.putAll(body);
                 out.put("kind", "query");
@@ -225,7 +234,8 @@ public final class Exec {
     }
 
     /** ResultSet 을 읽어 행/컬럼/지문을 만든다. */
-    private static Map<String, Object> fetch(ResultSet rs, int maxRows, boolean keepRows, boolean hashResult)
+    private static Map<String, Object> fetch(ResultSet rs, int maxRows, boolean keepRows, int keepRowsMax,
+                                               boolean hashResult)
             throws SQLException {
         Map<String, Object> out = Json.obj();
         ResultSetMetaData md = rs.getMetaData();
@@ -265,33 +275,54 @@ public final class Exec {
                 vals[i - 1] = v;
                 if (canon != null) { canon.append(canon(v)).append(UNIT_SEP); }
             }
+            boolean withinKeepCap = count < keepRowsMax;
             if (hashResult) {
                 byte[] rowBytes = utf8(canon.toString());
                 ordered.update(rowBytes);
                 ordered.update((byte) 0x1E);
-                rowDigests.add(hex(sha256(rowBytes)));
+                // rowDigests 는 unordered 해시의 재료다. keepRowsMax 를 넘으면 일부만 모이므로
+                // 그 상태로 unordered 해시를 계산하면 "결과가 같다"는 판정이 조용히 틀릴 수 있다.
+                // 아래에서 truncated 시 unordered 해시 자체를 내보내지 않는다.
+                if (withinKeepCap) rowDigests.add(hex(sha256(rowBytes)));
             }
-            if (keepRows) rows.add(Arrays.asList(vals));
+            // rows 도 동일한 상한으로 묶는다 — 200만 행을 그대로 보관하면 힙(-Xmx768m)이 터진다.
+            if (keepRows && withinKeepCap) rows.add(Arrays.asList(vals));
             count++;
         }
+        boolean keepTruncated = count > keepRowsMax;
         out.put("rows", rows);
         out.put("rowCount", Integer.valueOf(count));
         out.put("truncated", Boolean.valueOf(truncated));
         out.put("keptRows", Boolean.valueOf(keepRows));
+        // 소비(얼마나 읽었는가)와 보관(응답에 얼마나 담았는가)을 명시적으로 분리해 알린다.
+        out.put("consumedRows", Integer.valueOf(count));
+        out.put("keptRowCount", Integer.valueOf(rows.size()));
+        out.put("keepTruncated", Boolean.valueOf(keepTruncated));
 
         if (hashResult) {
             Map<String, Object> h = Json.obj();
             h.put("ordered", hex(ordered.digest()));
-            Collections.sort(rowDigests);
-            MessageDigest un = digest();
-            for (String d : rowDigests) un.update(utf8(d));
-            h.put("unordered", hex(un.digest()));
+            if (keepTruncated) {
+                // rowDigests 가 keepRowsMax 에서 잘렸다 — 부분 집합으로 계산한 unordered 해시를
+                // 정상값처럼 반환하지 않는다. 이걸 어기면 튜닝 전후 비교가 조용히 틀린다.
+                h.put("unorderedAvailable", Boolean.FALSE);
+                h.put("unorderedSkippedReason", "keepRowsMax 초과");
+            } else {
+                Collections.sort(rowDigests);
+                MessageDigest un = digest();
+                for (String d : rowDigests) un.update(utf8(d));
+                h.put("unordered", hex(un.digest()));
+                h.put("unorderedAvailable", Boolean.TRUE);
+            }
             h.put("rowCount", Integer.valueOf(count));
             h.put("columnSignature", Sql.hex(sha256(utf8(colSig.toString()))).substring(0, 16));
             h.put("truncated", Boolean.valueOf(truncated));
             out.put("hash", h);
-            // 차집합 계산을 위해 행 지문 목록을 남긴다(비교 명령에서만 사용)
-            out.put("_rowDigests", rowDigests);
+            if (!keepTruncated) {
+                // 차집합 계산을 위해 행 지문 목록을 남긴다(비교 명령에서만 사용).
+                // keepRowsMax 초과 시에는 부분 목록을 넘기지 않는다(Node 쪽 폭발 방지 + 오판정 방지).
+                out.put("_rowDigests", rowDigests);
+            }
         }
         return out;
     }

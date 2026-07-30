@@ -26,17 +26,12 @@ await import('/shared/sql-tokenizer.js');
 // ── PWA 설치("즐겨찾기 추가") ────────────────────────────────────────────
 // 브라우저는 JS 로 진짜 북마크를 추가하는 API 를 더는 허용하지 않는다(IE 의
 // window.external.AddFavorite 는 사라졌다). 대신 PWA 설치로 "바로가기"를 만든다.
-let deferredInstallPrompt = null;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  toast(t('install.doneToast'), 'ok');
-});
+//
+// ⚠ beforeinstallprompt 리스너를 여기서 달면 늦는다. 이 파일은 type="module" 이라
+// 지연 실행되고 위에서 await import 까지 하므로, 크롬이 로드 직후 던지는 이벤트를
+// 놓친다. 그래서 index.html <head> 의 인라인 스크립트가 먼저 잡아 두고
+// 여기서는 그 보관함(window.__otInstall)만 읽는다.
+const installState = window.__otInstall || { evt: null, installed: false };
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -84,20 +79,36 @@ function initShell() {
   onLangChange((code) => { if (linkManifest) linkManifest.href = `/manifest.${code}.webmanifest`; });
 
   // 즐겨찾기 추가(PWA 설치) 버튼
+  //
+  // 정책: <b>설치가 실제로 가능할 때만 버튼을 보여준다.</b>
+  // 눌렀는데 "Ctrl+D 를 누르세요" 라고만 하는 버튼은 스스로 아무것도 못 하면서
+  // 일을 사용자에게 떠넘기는 것이라 오히려 혼란스럽다(실제로 그런 지적을 받았다).
+  // 설치 못 하는 환경(이미 설치됨 / 미지원 브라우저)에서는 조용히 감춘다.
   const installBtn = $('#btn-install');
   if (installBtn) {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    if (standalone) installBtn.hidden = true;
+    const standalone = () =>
+      window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    const syncInstallBtn = () => {
+      installBtn.hidden = !installState.evt || installState.installed || standalone();
+    };
+    syncInstallBtn();
+
+    // 이벤트는 페이지 로드 직후 올 수도, 조금 늦게 올 수도 있다. 오면 그때 버튼을 드러낸다.
+    window.addEventListener('ot:installable', syncInstallBtn);
+    window.addEventListener('ot:installed', () => {
+      toast(t('install.doneToast'), 'ok');
+      syncInstallBtn();
+    });
+
     installBtn.addEventListener('click', async () => {
-      if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        const choice = await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        if (choice.outcome === 'accepted') installBtn.hidden = true;
-      } else {
-        // Ctrl+D 를 가로챌 수 없는 브라우저/설치 미지원 환경 — 기존 토스트로 안내한다(새 모달을 만들지 않는다)
-        toast(t('install.ctrlDHint'), '', 8000);
-      }
+      const evt = installState.evt;
+      if (!evt) { syncInstallBtn(); return; }
+      evt.prompt();
+      await evt.userChoice;
+      // 프롬프트 객체는 한 번만 쓸 수 있다. 수락했으면 appinstalled 가 이어서 온다.
+      installState.evt = null;
+      syncInstallBtn();
     });
   }
 

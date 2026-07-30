@@ -15,6 +15,29 @@
      i18n.js 의 onLangChange 에서 href 를 교체한다(web/js/app.js 참고). -->
 <link rel="manifest" id="link-manifest" href="/manifest.ko.webmanifest">
 
+<!-- PWA 설치 이벤트 조기 포착 (중요 — 여기 있어야 한다)
+
+     크롬은 페이지 로드 직후 beforeinstallprompt 를 한 번 던진다. 그런데 app.js 는
+     type="module" 이라 지연 실행되고, 게다가 최상단에서 await import(...) 까지 하므로
+     리스너가 등록될 때쯤이면 이벤트가 이미 지나가 있다. 그러면 설치 버튼이 영영
+     "설치 불가"로 판단해 버린다(실제로 그렇게 동작했다).
+
+     그래서 파서가 즉시 실행하는 이 인라인 스크립트에서 먼저 잡아 보관하고,
+     app.js 가 window.__otInstall 을 읽어간다. -->
+<script>
+  window.__otInstall = { evt: null, installed: false };
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();                 // 브라우저 기본 배너 대신 우리 버튼으로 유도
+    window.__otInstall.evt = e;
+    window.dispatchEvent(new CustomEvent('ot:installable'));
+  });
+  window.addEventListener('appinstalled', function () {
+    window.__otInstall.evt = null;
+    window.__otInstall.installed = true;
+    window.dispatchEvent(new CustomEvent('ot:installed'));
+  });
+</script>
+
 <!-- Open Grid 스타일 (npm 패키지 dist 를 그대로 서빙) -->
 <link rel="stylesheet" href="/vendor/open-grid/open-grid-base.css">
 <link rel="stylesheet" href="/vendor/open-grid/open-grid-themes.css">

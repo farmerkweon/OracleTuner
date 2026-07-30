@@ -189,6 +189,12 @@ const M = {
   'cd.max': { ko: '최대 후보', en: 'Max candidates', ja: '最大候補', zh: '最多候选' },
   'cd.exp': { ko: '실험적 후보 포함 (검증이 덜 된 방식도 시도)', en: 'Include experimental (less-proven methods too)', ja: '実験的候補を含む(検証が浅い方式も試す)', zh: '含实验性候选（也尝试验证较少的方式）' },
   'cd.intro': { ko: '<b>튜닝을 몰라도 됩니다.</b> [후보 생성] 을 누르면 이 SQL 에 시도해 볼 수 있는 튜닝안을 자동으로 만들고, [토너먼트 실행] 을 누르면 원본과 후보들을 <b>번갈아 여러 회전 실행</b>해서 속도·부하를 재고 <b>결과가 같은지</b>까지 확인한 뒤 순위를 매겨 드립니다.', en: '<b>No tuning expertise needed.</b> Click [Generate] to auto-build tuning candidates for this SQL, then [Run tournament] to execute the original and candidates <b>alternately over multiple rounds</b>, measure speed and load, verify the <b>results match</b>, and rank them.', ja: '<b>チューニングの知識は不要です。</b> [候補生成] でこの SQL の案を自動生成し、[トーナメント実行] で原本と候補を <b>交互に複数回転実行</b> して速度・負荷を測り、<b>結果が同じか</b> まで確認して順位を付けます。', zh: '<b>无需懂调优。</b> 点击[生成候选]为此 SQL 自动构建调优方案，点击[运行竞赛]将原语句与候选 <b>交替多轮执行</b>，测量速度与负载，验证 <b>结果是否一致</b> 并排名。' },
+  'cd.progress.starting': { ko: '토너먼트 준비 중…', en: 'Preparing tournament…', ja: 'トーナメント準備中…', zh: '正在准备锦标赛…' },
+  'cd.progress.phaseVerify': { ko: '예선', en: 'Qualifying', ja: '予選', zh: '预选' },
+  'cd.progress.phaseMeasure': { ko: '본선', en: 'Final', ja: '本戦', zh: '正赛' },
+  'cd.progress.status': { ko: '{phase} {done} / {total} 실행 중 — {label}', en: '{phase} {done} / {total} running — {label}', ja: '{phase} {done} / {total} 実行中 — {label}', zh: '{phase} {done} / {total} 执行中 — {label}' },
+  'cd.progress.elapsed': { ko: '경과 {sec}초', en: 'Elapsed {sec}s', ja: '経過 {sec}秒', zh: '已用 {sec}秒' },
+  'cd.progress.hint': { ko: '총 약 {total}회 실행 예정입니다. 완료될 때까지 이 탭을 벗어나도 됩니다.', en: 'About {total} executions are planned in total. You can leave this tab until it finishes.', ja: '合計約{total}回実行される予定です。完了までこのタブを離れても構いません。', zh: '预计共执行约 {total} 次。完成前可以离开此标签页。' },
 
   // ── 스키마 ──
   'sc.schema': { ko: '스키마', en: 'Schema', ja: 'スキーマ', zh: '模式' },

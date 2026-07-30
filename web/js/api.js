@@ -131,6 +131,10 @@ export const api = {
   // 튜닝 후보 생성 · 토너먼트 (여러 후보를 실제로 돌려 최적안을 고른다)
   generateCandidates: (b) => post('/api/sql/candidates', withSession(b)),
   tournament: (b) => post('/api/sql/tournament', withSession(b)),
+  tournamentProgress: () => {
+    const p = session.id ? `?sessionId=${encodeURIComponent(session.id)}` : '';
+    return get(`/api/sql/tournament/progress${p}`);
+  },
 
   // 메타데이터
   schemas: () => post('/api/meta/schemas', withSession()),

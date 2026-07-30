@@ -149,6 +149,89 @@ function renderGenerated(r) {
 
 // ── 2단계: 토너먼트 ────────────────────────────────────────────────────────
 
+let progressTimer = null;
+
+function stopProgressPoll() {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+}
+
+/** 후보 탭이 실제로 화면에 보이는지 — 다른 탭/뷰로 이탈했으면 폴링을 멈춘다(누수 방지). */
+function isCandsTabVisible() {
+  const rp = document.querySelector('.rpanel[data-tab="cands"]');
+  const wv = document.querySelector('.view[data-view="workbench"]');
+  return !!(rp && rp.classList.contains('is-active') && wv && wv.classList.contains('is-active'));
+}
+
+/** 프로그래스바 뼈대를 만든다. total 을 모르는 초기 상태는 불확정 막대로 보여준다. */
+function buildProgressScaffold() {
+  const fill = el('div', {
+    style: 'height:100%;border-radius:4px;background:var(--accent);width:22%;' +
+      'transition:width .3s,margin-left .25s'
+  });
+  const track = el('div', {
+    style: 'height:8px;border-radius:4px;background:var(--border);overflow:hidden;position:relative'
+  }, [fill]);
+  const label = el('span', { style: 'font-weight:600' }, [t('cd.progress.starting')]);
+  const elapsed = el('span', { class: 'muted' });
+  const wrap = el('div', { class: 'pad', id: 'cd-progress' }, [
+    el('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:12px' },
+      [label, elapsed]),
+    track
+  ]);
+  return { wrap, fill, label, elapsed };
+}
+
+function renderProgress(scaffold, data) {
+  const { fill, label, elapsed } = scaffold;
+  const total = data.total;
+  const done = data.done || 0;
+  if (total === null || total === undefined || total <= 0) {
+    // total 을 아직 모른다 — 0/0 을 "0%" 로 보여주면 멈춘 것처럼 보이므로 불확정 막대를 움직인다.
+    fill.style.background = 'var(--accent)';
+    fill.style.width = '22%';
+    const tt = Date.now() % 1600;
+    const pos = tt < 800 ? (tt / 800) * 78 : ((1600 - tt) / 800) * 78;
+    fill.style.marginLeft = pos.toFixed(1) + '%';
+    label.textContent = t('cd.progress.starting');
+  } else {
+    const pct = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+    fill.style.background = 'var(--primary)';
+    fill.style.marginLeft = '0';
+    fill.style.width = pct + '%';
+    const phaseKey = data.phase === 'verify' ? 'cd.progress.phaseVerify'
+      : data.phase === 'measure' ? 'cd.progress.phaseMeasure' : '';
+    label.textContent = t('cd.progress.status', {
+      phase: phaseKey ? t(phaseKey) : '', done, total, label: data.label || ''
+    });
+  }
+  const sec = data.startedAt ? Math.max(0, Math.floor((Date.now() - data.startedAt) / 1000)) : 0;
+  elapsed.textContent = t('cd.progress.elapsed', { sec });
+}
+
+/** 500ms 마다 진행률 API 를 폴링해 프로그래스바를 갱신한다. 탭 이탈·완료 시 스스로 멈춘다. */
+function startProgressPoll(scaffold) {
+  stopProgressPoll();
+  progressTimer = setInterval(async () => {
+    if (!isCandsTabVisible()) { stopProgressPoll(); return; }
+    let p;
+    try {
+      p = await api.tournamentProgress();
+    } catch (e) {
+      return; // 폴링 실패는 조용히 다음 tick 에 재시도 — 콘솔을 어지럽히지 않는다
+    }
+    if (!p) return;
+    if (p.running === false) {
+      if (p.total != null) renderProgress(scaffold, p);
+      stopProgressPoll();
+      return;
+    }
+    renderProgress(scaffold, p);
+  }, 500);
+}
+
 async function runTournament(btn) {
   if (!session.connected) return toast('토너먼트는 실제 실행이 필요합니다. 먼저 DB 에 접속하세요.', 'warn');
   const sql = state.getSql();
@@ -164,9 +247,12 @@ async function runTournament(btn) {
     `총 실행 횟수는 약 ${total}회입니다.\n\n` +
     '조회(SELECT)가 아니면 데이터가 바뀔 수 있으니 주의하세요. 진행할까요?')) return;
 
-  $('#cand-body').innerHTML =
-    `<div class="pad muted">원본과 후보 ${n}개를 번갈아 실행하며 측정하고 있습니다… ` +
-    `(약 ${total}회 실행)<br>완료될 때까지 이 탭을 벗어나도 됩니다.</div>`;
+  const candBody = $('#cand-body');
+  candBody.innerHTML = '';
+  const scaffold = buildProgressScaffold();
+  candBody.appendChild(scaffold.wrap);
+  candBody.appendChild(el('div', { class: 'pad muted', text: t('cd.progress.hint', { total }) }));
+  startProgressPoll(scaffold);
 
   await withBusy(btn, async () => {
     try {
@@ -190,6 +276,8 @@ async function runTournament(btn) {
       $('#cand-body').innerHTML = `<div class="pad" style="color:var(--danger)">${esc(errText(e))}</div>`;
       toast(errText(e), 'err', 8000);
       logMsg(`토너먼트 실패: ${errText(e)}`, 'err');
+    } finally {
+      stopProgressPoll();
     }
   }, '측정 중…');
 }

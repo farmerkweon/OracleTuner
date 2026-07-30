@@ -6,6 +6,7 @@
  */
 
 import { $, $$, el, esc, toast, errText, withBusy } from '../util.js';
+import { t } from '../i18n.js';
 import { api } from '../api.js';
 
 let current = null;
@@ -27,7 +28,7 @@ export async function refresh() {
     renderDrivers(r.diagnostics.jars || []);
     loadJavaCandidates();
   } catch (e) {
-    toast(`설정을 불러오지 못했습니다: ${errText(e)}`, 'err');
+    toast(t('se.loadFailed', { err: errText(e) }), 'err');
   }
 }
 
@@ -79,16 +80,16 @@ async function saveSettings() {
       window.__otConfig = r.settings;
       renderDiagnostics(r.diagnostics);
       renderDrivers(r.diagnostics.jars || []);
-      let text = '저장했습니다.';
-      if (r.restarted) text += ' Java/JDBC 설정이 바뀌어 브리지를 다시 띄웠습니다 (DB 접속은 끊깁니다).';
-      if (r.restartError) text += ` 브리지 재기동 실패: ${r.restartError}`;
+      let text = t('se.saved');
+      if (r.restarted) text += ' ' + t('se.restartedNote');
+      if (r.restartError) text += ' ' + t('se.restartFailed', { err: r.restartError });
       msg.textContent = text;
       toast(text, r.restartError ? 'err' : 'ok', 6000);
     } catch (e) {
       msg.textContent = errText(e);
       toast(errText(e), 'err');
     }
-  }, '저장 중…');
+  }, t('se.saving'));
 }
 
 async function restartBridge() {
@@ -96,12 +97,12 @@ async function restartBridge() {
   await withBusy(btn, async () => {
     try {
       await api.restartBridge();
-      toast('브리지를 다시 띄웠습니다. DB 접속은 끊겼습니다.', 'ok');
+      toast(t('se.restartedOk'), 'ok');
       refresh();
     } catch (e) {
       toast(errText(e), 'err', 8000);
     }
-  }, '재기동 중…');
+  }, t('se.restarting'));
 }
 
 async function rebuildBridge() {
@@ -109,20 +110,20 @@ async function rebuildBridge() {
   await withBusy(btn, async () => {
     try {
       const r = await api.buildBridge(true);
-      toast(`${r.ok ? '빌드 성공' : '빌드 실패'}: ${r.message}`, r.ok ? 'ok' : 'err', 8000);
+      toast(`${r.ok ? t('se.buildOk') : t('se.buildFail')}: ${r.message}`, r.ok ? 'ok' : 'err', 8000);
       if (r.output) console.log(r.output);
       refresh();
     } catch (e) {
       toast(errText(e), 'err', 8000);
     }
-  }, '빌드 중…');
+  }, t('se.building'));
 }
 
 async function rescanDrivers() {
   try {
     const r = await api.rescanDrivers();
     renderDrivers(r.jars || []);
-    toast(`드라이버 ${r.jars.filter((j) => j.exists).length}개를 인식했습니다.`, 'ok');
+    toast(t('se.driversFound', { n: r.jars.filter((j) => j.exists).length }), 'ok');
   } catch (e) {
     toast(errText(e), 'err');
   }
@@ -145,8 +146,8 @@ function renderDiagnostics(diag) {
   host.appendChild(el('div', { class: 'diag-item' }, [
     el('div', { class: 'diag-icon', text: 'i' }),
     el('div', { class: 'diag-body' }, [
-      el('div', { class: 'diag-label', text: '실행 환경' }),
-      el('div', { class: 'diag-detail', text: `Node ${diag.node} · ${diag.platform}\n설정 파일: ${diag.settingsFile}` })
+      el('div', { class: 'diag-label', text: t('se.runtimeLabel') }),
+      el('div', { class: 'diag-detail', text: t('se.runtimeDetail', { node: diag.node, platform: diag.platform, file: diag.settingsFile }) })
     ])
   ]));
 }
@@ -155,7 +156,7 @@ function renderDrivers(jars) {
   const host = $('#driver-list');
   host.innerHTML = '';
   if (!jars.length) {
-    host.appendChild(el('div', { class: 'cand is-missing', text: '인식된 드라이버가 없습니다. java/lib 에 ojdbc11.jar 를 넣으세요.' }));
+    host.appendChild(el('div', { class: 'cand is-missing', text: t('se.noDrivers') }));
     return;
   }
   for (const j of jars) {
@@ -167,12 +168,12 @@ function renderDrivers(jars) {
 
 async function loadJavaCandidates() {
   const host = $('#java-candidates');
-  host.innerHTML = '<div class="muted" style="font-size:11.5px">설치된 Java 를 찾는 중…</div>';
+  host.innerHTML = `<div class="muted" style="font-size:11.5px">${esc(t('se.searchingJava'))}</div>`;
   try {
     const r = await api.javaHomes();
     host.innerHTML = '';
     if (!r.homes.length) {
-      host.appendChild(el('div', { class: 'cand is-missing', text: '설치된 Java 를 찾지 못했습니다. 경로를 직접 입력하세요.' }));
+      host.appendChild(el('div', { class: 'cand is-missing', text: t('se.noJavaFound') }));
       return;
     }
     for (const h of r.homes) {
@@ -180,10 +181,10 @@ async function loadJavaCandidates() {
         el('span', { text: `${h.hasJavac ? 'JDK' : 'JRE'} · ${h.version || ''} · ${h.home}` }),
         el('button', {
           class: 'btn btn-sm',
-          text: '사용',
+          text: t('se.use'),
           onclick: () => {
             $('#cfg-java-home').value = h.home;
-            toast('경로를 입력란에 넣었습니다. [설정 저장] 을 누르세요.');
+            toast(t('se.pathFilled'));
           }
         })
       ]);

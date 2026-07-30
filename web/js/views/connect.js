@@ -6,6 +6,7 @@
  */
 
 import { $, $$, el, esc, toast, errText, withBusy, logMsg } from '../util.js';
+import { t } from '../i18n.js';
 import { api, session } from '../api.js';
 
 let connections = [];
@@ -72,14 +73,14 @@ function renderList() {
   const ul = $('#conn-list');
   ul.innerHTML = '';
   if (!connections.length) {
-    ul.appendChild(el('li', { class: 'muted', text: '저장된 접속이 없습니다. [+ 새로] 로 만드세요.' }));
+    ul.appendChild(el('li', { class: 'muted', text: t('cn.noSaved') }));
     return;
   }
   for (const c of connections) {
     const li = el('li', { class: c.id === selectedId ? 'is-sel' : '' }, [
       el('div', { class: 'conn-name' }, [
         document.createTextNode(c.name),
-        c.production ? el('span', { class: 'prod-mark', text: '운영' }) : null,
+        c.production ? el('span', { class: 'prod-mark', text: t('cn.prodBadge') }) : null,
         c.hasSavedPassword ? el('span', { class: 'tag-pill', text: 'PW' }) : null
       ]),
       el('div', { class: 'conn-desc', text: `${c.user || '-'} @ ${c.url}` })
@@ -105,7 +106,7 @@ function fillForm(c) {
   $('#cf-note').value = c.note || '';
   $('#cf-role').value = c.role || '';
   $('#cf-password').value = '';
-  $('#cf-password').placeholder = c.hasSavedPassword ? '저장된 비밀번호 사용 (바꾸려면 입력)' : '';
+  $('#cf-password').placeholder = c.hasSavedPassword ? t('cn.savedPwPlaceholder') : '';
   $('#cf-save-pw').checked = c.savePassword !== false;
   $('#cf-production').checked = !!c.production;
   msg('');
@@ -142,30 +143,30 @@ function missingTarget(d) {
 
 async function saveProfile() {
   const d = formData();
-  if (!d.name) return msg('접속 이름을 입력하세요.', 'err');
+  if (!d.name) return msg(t('cn.needName'), 'err');
   if (missingTarget(d)) {
     $('#cf-service').focus();
-    return msg('서비스명을 입력하세요. (Oracle Free 는 보통 FREEPDB1, XE 는 XEPDB1)', 'err');
+    return msg(t('cn.needService'), 'err');
   }
   try {
     const r = await api.saveConnection(d);
     selectedId = r.connection.id;
     await refreshList();
-    msg('프로필을 저장했습니다.', 'ok');
+    msg(t('cn.profileSaved'), 'ok');
   } catch (e) {
     msg(errText(e), 'err');
   }
 }
 
 async function removeProfile() {
-  if (!selectedId) return msg('삭제할 프로필을 선택하세요.', 'err');
+  if (!selectedId) return msg(t('cn.selectToDelete'), 'err');
   const c = connections.find((x) => x.id === selectedId);
-  if (!confirm(`접속 프로필 "${c ? c.name : selectedId}" 을(를) 삭제할까요?`)) return;
+  if (!confirm(t('cn.deleteConfirm', { name: c ? c.name : selectedId }))) return;
   try {
     await api.removeConnection(selectedId);
     selectedId = null;
     await refreshList();
-    msg('삭제했습니다.', 'ok');
+    msg(t('cn.deleted'), 'ok');
   } catch (e) {
     msg(errText(e), 'err');
   }
@@ -174,7 +175,7 @@ async function removeProfile() {
 async function testProfile() {
   const btn = $('#btn-test-conn');
   const d = formData();
-  msg('접속 시험 중…');
+  msg(t('cn.testing'));
   await withBusy(btn, async () => {
     try {
       // 저장된 프로필이면 저장된 비밀번호를 쓸 수 있게 id 로 보낸다
@@ -182,49 +183,49 @@ async function testProfile() {
       const r = await api.testConnection(body);
       if (r.ok) {
         const s = r.server || {};
-        msg(`접속 성공\n${s.banner || s.databaseProduct || ''}\n스키마: ${s.currentSchema || s.schema || '-'} · 서버시각: ${s.serverTime || '-'}`, 'ok');
+        msg(t('cn.testOk', { banner: s.banner || s.databaseProduct || '', schema: s.currentSchema || s.schema || '-', time: s.serverTime || '-' }), 'ok');
       } else {
-        msg(`접속 실패\n${r.error}`, 'err');
+        msg(t('cn.testFail', { err: r.error }), 'err');
       }
     } catch (e) {
       msg(errText(e), 'err');
     }
-  }, '시험 중…');
+  }, t('cn.testingBtn'));
 }
 
 async function doConnect() {
   const btn = $('#btn-do-connect');
   const d = formData();
-  if (!selectedId && !d.name) return msg('프로필을 먼저 저장하거나 접속 정보를 입력하세요.', 'err');
+  if (!selectedId && !d.name) return msg(t('cn.needProfile'), 'err');
   if (missingTarget(d)) {
     $('#cf-service').focus();
-    return msg('서비스명을 입력하세요. (Oracle Free 는 보통 FREEPDB1, XE 는 XEPDB1)\n비워 두면 ORA-12261 이 납니다.', 'err');
+    return msg(t('cn.needServiceConnect'), 'err');
   }
 
   await withBusy(btn, async () => {
-    msg('접속 중…');
+    msg(t('cn.connecting'));
     try {
       const body = selectedId
         ? { connectionId: selectedId, password: d.password || undefined }
         : { ...d };
       const r = await api.connect(body);
       const s = r.server || {};
-      logMsg(`접속: ${s.banner || s.databaseProduct || ''} (${s.currentSchema || ''})`, 'ok');
-      toast(`접속되었습니다 — ${d.name || s.currentSchema || ''}`, 'ok');
+      logMsg(t('cn.logConnected', { banner: s.banner || s.databaseProduct || '', schema: s.currentSchema || '' }), 'ok');
+      toast(t('cn.connectedToast', { name: d.name || s.currentSchema || '' }), 'ok');
       close();
       onConnected(r);
     } catch (e) {
       msg(errText(e), 'err');
-      logMsg(`접속 실패: ${errText(e)}`, 'err');
+      logMsg(t('cn.logConnectFailed', { err: errText(e) }), 'err');
     }
-  }, '접속 중…');
+  }, t('cn.connecting'));
 }
 
 async function doDisconnect() {
   try {
     await api.disconnect();
-    toast('접속을 끊었습니다.');
-    logMsg('접속 해제');
+    toast(t('cn.disconnectedToast'));
+    logMsg(t('top.disconnect'));
     onConnected(null);
   } catch (e) {
     toast(errText(e), 'err');
@@ -239,8 +240,8 @@ export function renderStatus() {
 
   if (!session.connected) {
     badge.className = 'conn-status conn-off';
-    badge.textContent = '미접속';
-    btn.textContent = '접속';
+    badge.textContent = t('top.notConnected');
+    btn.textContent = t('top.connect');
     btn.className = 'btn btn-primary';
     caps.innerHTML = '';
     return;
@@ -249,9 +250,9 @@ export function renderStatus() {
   const meta = session.meta || {};
   const server = meta.server || {};
   badge.className = `conn-status ${meta.production ? 'conn-prod' : 'conn-on'}`;
-  badge.textContent = `${meta.production ? '운영 · ' : ''}${meta.connectionName || ''} (${server.currentSchema || server.schema || ''})`;
-  badge.title = `${server.banner || ''}\n${server.url || ''}\nSID ${server.sid || '-'} · 인스턴스 ${server.instance || '-'}`;
-  btn.textContent = '접속 해제';
+  badge.textContent = `${meta.production ? t('cn.prodPrefix') : ''}${meta.connectionName || ''} (${server.currentSchema || server.schema || ''})`;
+  badge.title = t('cn.statusTitle', { banner: server.banner || '', url: server.url || '', sid: server.sid || '-', instance: server.instance || '-' });
+  btn.textContent = t('top.disconnect');
   btn.className = 'btn';
 
   renderCapBadges(session.capabilities);
@@ -262,18 +263,18 @@ function renderCapBadges(capabilities) {
   const host = $('#cap-badges');
   host.innerHTML = '';
   if (!capabilities || !capabilities.tiers) return;
-  const t = capabilities.tiers;
+  const tiers = capabilities.tiers;
 
   const level = (v, best, mid) => (v === best ? 'lv-best' : (mid.includes(v) ? 'lv-mid' : 'lv-low'));
   const items = [
-    { text: `계획: ${shortPlan(t.plan)}`, cls: level(t.plan, 'DBMS_XPLAN', ['PLAN_TABLE']), tip: t.planLabel },
-    { text: `계측: ${shortRt(t.runtime)}`, cls: level(t.runtime, 'ROWSOURCE_STATS', ['SESSION_STATS']), tip: t.runtimeLabel },
-    { text: `딕셔너리: ${shortDict(t.dictionary)}`, cls: level(t.dictionary, 'DBA', ['ALL', 'USER']), tip: t.dictionaryLabel }
+    { text: t('cn.capPlan', { v: shortPlan(tiers.plan) }), cls: level(tiers.plan, 'DBMS_XPLAN', ['PLAN_TABLE']), tip: tiers.planLabel },
+    { text: t('cn.capRuntime', { v: shortRt(tiers.runtime) }), cls: level(tiers.runtime, 'ROWSOURCE_STATS', ['SESSION_STATS']), tip: tiers.runtimeLabel },
+    { text: t('cn.capDict', { v: shortDict(tiers.dictionary) }), cls: level(tiers.dictionary, 'DBA', ['ALL', 'USER']), tip: tiers.dictionaryLabel }
   ];
   const degraded = (capabilities.degraded || []).length;
   if (degraded) {
     items.push({
-      text: `제한 ${degraded}건`,
+      text: t('cn.capDegraded', { n: degraded }),
       cls: 'lv-mid',
       tip: (capabilities.degraded || []).map((d) => `· ${d.label}: ${d.impact}`).join('\n')
     });
@@ -284,11 +285,11 @@ function renderCapBadges(capabilities) {
 }
 
 function shortPlan(v) {
-  return { DBMS_XPLAN: '표준', PLAN_TABLE: '기본', NONE: '없음' }[v] || v;
+  return { DBMS_XPLAN: t('cn.planStd'), PLAN_TABLE: t('cn.planBasic'), NONE: t('cn.planNone') }[v] || v;
 }
 function shortRt(v) {
-  return { ROWSOURCE_STATS: '실적포함', SESSION_STATS: '세션통계', TIMING_ONLY: '시간만' }[v] || v;
+  return { ROWSOURCE_STATS: t('cn.rtFull'), SESSION_STATS: t('cn.rtSession'), TIMING_ONLY: t('cn.rtTimeOnly') }[v] || v;
 }
 function shortDict(v) {
-  return { DBA: 'DBA', ALL: 'ALL', USER: 'USER', JDBC_ONLY: 'JDBC만' }[v] || v;
+  return { DBA: 'DBA', ALL: 'ALL', USER: 'USER', JDBC_ONLY: t('cn.dictJdbcOnly') }[v] || v;
 }

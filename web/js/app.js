@@ -4,9 +4,9 @@
  * 화면 조립과 전역 배선만 담당한다. 각 화면의 동작은 views/* 에 있다.
  */
 
-import { $, $$, toast, logMsg, errText } from './util.js';
+import { $, $$, el, toast, logMsg, errText } from './util.js';
 import { api, session } from './api.js';
-import { setTheme, resizeAll } from './gridkit.js';
+import { setTheme, resizeAll, openDetailModal } from './gridkit.js';
 import { initLang, setLang, applyDom, onLangChange, LANGS, t } from './i18n.js';
 import { applyIcons } from './icons.js';
 import { applyProjectLinks } from './project.js';
@@ -32,6 +32,59 @@ await import('/shared/sql-tokenizer.js');
 // 놓친다. 그래서 index.html <head> 의 인라인 스크립트가 먼저 잡아 두고
 // 여기서는 그 보관함(window.__otInstall)만 읽는다.
 const installState = window.__otInstall || { evt: null, installed: false };
+
+/**
+ * 설치가 안 될 때 <b>왜 안 되는지</b>를 사실로 모아 온다.
+ *
+ * 설치 프롬프트는 브라우저가 조건을 다 만족했다고 판단해야만 던진다. 그 판단은 우리가
+ * 볼 수 없으므로, 조건 하나하나를 직접 확인해 사용자에게 그대로 보여준다.
+ * "안 되네요" 로 끝내지 않기 위한 장치다.
+ */
+async function collectInstallDiag() {
+  const L = [];
+  const add = (k, v) => L.push(`${k.padEnd(26)} ${v}`);
+
+  add('브라우저 설치 지원', 'onbeforeinstallprompt' in window
+    ? '예'
+    : '아니오 — 이 브라우저는 앱 설치를 지원하지 않습니다(Firefox/Safari 등)');
+  add('보안 컨텍스트', window.isSecureContext ? '예' : '아니오 — https 또는 localhost 여야 합니다');
+  add('시크릿(비공개) 창', '시크릿 창은 설치·서비스워커가 모두 차단됩니다');
+  add('설치 프롬프트 수신', installState.evt ? '예 — 지금 설치할 수 있습니다' : '아니오');
+  add('이미 설치됨', (window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true || installState.installed) ? '예' : '아니오');
+
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    add('서비스워커', reg
+      ? `등록됨 (scope ${reg.scope}) · 제어중 ${navigator.serviceWorker.controller ? '예' : '아니오'}`
+      : '등록 안 됨 ★ 설치 조건 미달');
+  } catch (e) {
+    add('서비스워커', '확인 실패 — ' + e.message);
+  }
+
+  const link = document.getElementById('link-manifest');
+  add('manifest 링크', link ? link.getAttribute('href') : '없음 ★');
+  if (link) {
+    try {
+      const r = await fetch(link.href, { cache: 'no-store' });
+      add('manifest 응답', `${r.status} ${r.headers.get('content-type') || ''}`);
+      const m = await r.json();
+      add('name / display', `${m.name || '(없음)'} / ${m.display || '(없음)'}`);
+      for (const ic of (m.icons || [])) {
+        try {
+          const ir = await fetch(ic.src, { cache: 'no-store' });
+          add(`아이콘 ${ic.sizes}`, `${ir.status} ${ir.headers.get('content-type') || ''}`);
+        } catch (e) {
+          add(`아이콘 ${ic.sizes}`, '실패 — ' + e.message);
+        }
+      }
+    } catch (e) {
+      add('manifest 응답', '실패 ★ — ' + e.message);
+    }
+  }
+  add('현재 주소', location.href);
+  return L.join('\n');
+}
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -89,8 +142,11 @@ function initShell() {
     const standalone = () =>
       window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
+    // 버튼은 <b>이미 설치된 경우에만</b> 감춘다.
+    // 앞서 "설치 불가면 아예 감춘다" 로 했더니 아무 반응이 없는 것처럼 보여 더 혼란스러웠다.
+    // 설치가 안 되는 상황이면 버튼을 눌렀을 때 <b>왜 안 되는지</b>를 보여주는 편이 정직하다.
     const syncInstallBtn = () => {
-      installBtn.hidden = !installState.evt || installState.installed || standalone();
+      installBtn.hidden = installState.installed || standalone();
     };
     syncInstallBtn();
 
@@ -103,12 +159,27 @@ function initShell() {
 
     installBtn.addEventListener('click', async () => {
       const evt = installState.evt;
-      if (!evt) { syncInstallBtn(); return; }
-      evt.prompt();
-      await evt.userChoice;
-      // 프롬프트 객체는 한 번만 쓸 수 있다. 수락했으면 appinstalled 가 이어서 온다.
-      installState.evt = null;
-      syncInstallBtn();
+      if (evt) {
+        evt.prompt();
+        await evt.userChoice;
+        // 프롬프트 객체는 한 번만 쓸 수 있다. 수락했으면 appinstalled 가 이어서 온다.
+        installState.evt = null;
+        syncInstallBtn();
+        return;
+      }
+      // 설치 프롬프트가 없다 — 이유를 사실로 보여주고, 수동 방법도 함께 안내한다.
+      const diag = await collectInstallDiag();
+      openDetailModal(t('install.title'), (body) => {
+        body.appendChild(el('p', { text: t('install.whyText') }));
+        body.appendChild(el('p', { text: t('install.chromeMenuHint') }));
+        body.appendChild(el('p', { text: t('install.ctrlDHint') }));
+        body.appendChild(el('pre', {
+          text: diag,
+          style: 'margin-top:10px;padding:10px;background:#f6f7f9;border:1px solid #dfe3e8;'
+               + 'border-radius:6px;font-size:11.5px;line-height:1.7;white-space:pre-wrap;'
+               + 'word-break:break-all;overflow:auto;max-height:46vh;'
+        }));
+      });
     });
   }
 

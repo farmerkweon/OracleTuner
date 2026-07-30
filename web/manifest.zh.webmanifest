@@ -1,0 +1,15 @@
+{
+  "name": "Oracle Tuner — SQL 调优工作台",
+  "short_name": "Oracle Tuner",
+  "description": "面向 Oracle 的本地 SQL 调优工作台",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "lang": "zh",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

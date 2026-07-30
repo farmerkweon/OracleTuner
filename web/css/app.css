@@ -761,6 +761,11 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .design-fig p { margin: 8px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text); }
 .design-fig-zoom { display: block; max-width: 100%; height: auto; margin: 0 auto; background: #fff; }
 
+/* "시작하기" 탭 화면 캡처 갤러리 — design-fig/design-fig-img 를 그대로 재사용해
+   확대(openDetailModal)도 그대로 동작한다. 세로로 쌓되 위쪽 여백만 좀 더 준다. */
+.help-shots { display: flex; flex-direction: column; gap: 20px; margin-top: 18px; }
+.help-shots .help-shot h4 { margin-top: 0; }
+
 .cap-live { margin-bottom: 4px; }
 .cap-live-tiers { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .cap-restricted td:first-child { color: var(--warn); }

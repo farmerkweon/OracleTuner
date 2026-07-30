@@ -80,7 +80,7 @@ function render() {
   }
   const content = $('#help-content');
   content.innerHTML =
-    activeTab === 'start' ? START[lang] || START.ko
+    activeTab === 'start' ? (START[lang] || START.ko) + shotsHtml(lang)
     : activeTab === 'keys' ? KEYS[lang] || KEYS.ko
     : activeTab === 'caps' ? capsHtml(lang)
     : activeTab === 'design' ? designHtml(lang)
@@ -213,6 +213,80 @@ const START = {
       ⑦ 不是性能问题而是 <b>结果错误</b>，验证会将其标为"结果不同"。
       用完后可用"⑨ 데모 데이터 정리"清理。</p>`
 };
+
+/**
+ * "시작하기" 탭 화면 캡처(로케일별 4벌, design/capture-help-shots.js 로 생성 → web/help-img/*.webp).
+ * design 탭의 design-fig/design-fig-img 클래스를 그대로 재사용해 클릭 시 gridkit.js 의
+ * openDetailModal 로 확대되게 한다(onDesignFigClick 이 이미 #help-content 전체에 위임돼 있음).
+ */
+const HELP_SHOTS = [
+  {
+    name: 'topbar', w: 1440, h: 47,
+    title: { ko: '상단바', en: 'Top bar', ja: '上部バー', zh: '顶部栏' },
+    caption: {
+      ko: '접속 버튼과 접속 상태 배지, 언어·테마 전환이 모두 상단바에 있다.',
+      en: 'The connect button, connection status badge, and language/theme switches all live in the top bar.',
+      ja: '接続ボタン、接続状態バッジ、言語・テーマ切り替えはすべて上部バーにある。',
+      zh: '连接按钮、连接状态徽标、语言与主题切换都在顶部栏。'
+    }
+  },
+  {
+    name: 'sqllist', w: 1440, h: 430,
+    title: { ko: 'SQL 목록', en: 'SQL list', ja: 'SQL 一覧', zh: 'SQL 列表' },
+    caption: {
+      ko: '왼쪽 트리에서 SQL 을 고르면 오른쪽에 미리보기(문장·설명·튜닝 이력)가 뜬다. 더블클릭하면 워크벤치로 열린다.',
+      en: 'Pick a SQL from the tree on the left; the preview (statement, notes, tuning history) shows on the right. Double-click to open it in the workbench.',
+      ja: '左のツリーで SQL を選ぶと右にプレビュー(文・説明・チューニング履歴)が表示される。ダブルクリックでワークベンチに開く。',
+      zh: '在左侧树中选择 SQL，右侧会显示预览(语句、说明、调优历史)。双击可在工作台中打开。'
+    }
+  },
+  {
+    name: 'workbench', w: 1210, h: 790,
+    title: { ko: '워크벤치', en: 'Workbench', ja: 'ワークベンチ', zh: '工作台' },
+    caption: {
+      ko: '왼쪽이 튜닝 전, 오른쪽이 튜닝 후 편집기다. 실행하면 아래 결과 탭에 그리드로 뜬다.',
+      en: 'The left editor holds the original SQL, the right the tuned version. Run either and the grid below shows the result.',
+      ja: '左がチューニング前、右がチューニング後の編集エリア。実行すると下の結果タブにグリッドで表示される。',
+      zh: '左侧是调优前，右侧是调优后的编辑器。执行后，下方结果标签会以表格显示。'
+    }
+  },
+  {
+    name: 'tournament', w: 1210, h: 442,
+    title: { ko: '튜닝 후보 · 토너먼트', en: 'Candidates & Tournament', ja: '候補・トーナメント', zh: '候选与锦标赛' },
+    caption: {
+      ko: '[후보 생성]으로 시도해 볼 안을 자동으로 만들고, [토너먼트 실행]으로 원본과 후보를 번갈아 실행해 순위를 매긴다.',
+      en: '[Generate] automatically builds candidate rewrites; [Run tournament] runs the original and candidates alternately and ranks them.',
+      ja: '[候補生成]で試せる案を自動作成し、[トーナメント実行]で原本と候補を交互に実行して順位を付ける。',
+      zh: '[生成候选]自动生成可尝试的方案，[运行竞赛]交替执行原语句与候选并排名。'
+    }
+  },
+  {
+    name: 'settings', w: 980, h: 360,
+    title: { ko: '설정 — 안전모드', en: 'Settings — Safe mode', ja: '設定 — セーフモード', zh: '设置 — 安全模式' },
+    caption: {
+      ko: '[설정] → 실행 기본값 카드의 안전모드 — DML/DDL 을 실행해도 자동으로 되돌린다. 샘플 예제로 데이터를 남기려면 잠깐 꺼야 한다.',
+      en: 'Settings → Execution defaults → Safe mode auto-rolls back DML/DDL. Turn it off briefly to keep data from the sample walkthrough.',
+      ja: '[設定] → 実行既定値カードのセーフモード — DML/DDL を実行しても自動で元に戻す。サンプルでデータを残すには一時的にオフにする。',
+      zh: '[设置] → 执行默认值卡片中的安全模式——自动回滚 DML/DDL。若要保留示例数据，需暂时关闭它。'
+    }
+  }
+];
+
+function shotsHtml(lang) {
+  const figs = HELP_SHOTS.map((s) => {
+    const title = esc(s.title[lang] || s.title.ko);
+    const caption = esc(s.caption[lang] || s.caption.ko);
+    const src = `/help-img/${s.name}.${lang}.webp`;
+    return `
+      <div class="design-fig help-shot">
+        <h4>${title}</h4>
+        <img class="design-fig-img" src="${src}" alt="${title}" loading="lazy"
+             width="${s.w}" height="${s.h}" data-title="${title}">
+        <p>${caption}</p>
+      </div>`;
+  }).join('');
+  return `<div class="help-shots">${figs}</div>`;
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 //  단축키

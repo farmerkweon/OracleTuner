@@ -30,6 +30,9 @@
   --topbar-h:      46px;
   --railbar-h:     36px;
   --footer-h:      28px;
+  /* 뷰 한 장이 "최소한" 차지해야 하는 높이 = 화면에서 상단바·레일바·푸터를 뺀 만큼.
+     min-height 로만 쓴다 — 내용이 길면 이보다 커져서 문서가 함께 길어진다. */
+  --view-min-h:    calc(100vh - 46px - 36px - 28px);
 
   --mono: 'D2Coding', 'Cascadia Mono', 'Consolas', 'JetBrains Mono', 'Menlo', 'Noto Sans Mono CJK KR', monospace;
   --sans: 'Pretendard', 'Malgun Gothic', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -136,9 +139,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
    내용이 길면 flex-shrink:0 덕분에 줄어들지 않고 문서가 함께 길어진다. */
 #views { flex: 1 0 auto; position: relative; }
 
-/* 워크벤치는 에디터가 absolute 오버레이 구조라 부모 높이가 반드시 확정돼야 한다.
-   #views 가 더 이상 고정 height 가 아니므로 붕괴 방지용 최소 높이를 명시한다. */
-.view[data-view="workbench"] { min-height: 520px; }
+/* 워크벤치 높이 정책은 아래 "뷰 높이 정책" 절에서 함께 다룬다. */
 
 /* ── 하단 푸터 (스크롤을 따라가는 sticky) ─────────────────── */
 .app-footer {
@@ -157,8 +158,41 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .app-footer .af-copy { color: var(--text-faint); font-weight: 500; }
 .app-footer .af-copy a { color: var(--primary); font-weight: 700; }
 .app-footer .af-sep { color: var(--border-strong); }
-.view { display: none; height: 100%; }
-.view.is-active { display: block; }
+/* ── 뷰 높이 정책 (항목 #11) ────────────────────────────────────────────────
+ *
+ * 요구: "툴 크기가 화면에 제한적임. 길면 긴대로 펼쳐지고 푸터는 스크롤 따라다니면 됨."
+ *
+ * 그래서 height(고정) 가 아니라 min-height 를 쓴다 —
+ *   내용이 짧으면 화면을 꽉 채우고(푸터 위에 빈 회색 띠가 생기지 않는다),
+ *   내용이 길면 이보다 커져서 문서 자체가 길어지고 페이지가 스크롤된다.
+ *
+ * height:100% 를 쓰지 않는 이유(실측):
+ *   #views 가 flex 로 늘어난 항목이 되면서 크롬이 그 높이를 퍼센트 해석용
+ *   확정 높이로 취급하지 않는다. 그래서 .view{height:100%} 가 auto 로 떨어져
+ *   뷰가 내용 높이만큼만 그려지고 푸터 위에 큰 회색 공백이 생겼다.
+ *   변경 전/후 스크린샷 비교로 확인했다.
+ * ────────────────────────────────────────────────────────────────────────── */
+.view { display: none; }
+.view.is-active {
+  display: flex; flex-direction: column;
+  min-height: var(--view-min-h);
+}
+
+/* 각 뷰의 단일 래퍼가 뷰 높이를 채우게 한다. 이 래퍼들이 내부에서 height:100% 를
+   쓰고 있었는데, 부모가 flex 가 되면서 퍼센트가 풀리므로 flex 로 늘려준다.
+   min-height:0 은 래퍼 내부의 overflow 스크롤이 정상 동작하게 하는 flex 관용구다. */
+.view.is-active > .schema-layout,
+.view.is-active > .wb-layout,
+.view.is-active > .settings-wrap { flex: 1 1 auto; min-height: 0; }
+
+/* 워크벤치만 예외로 확정 높이를 준다.
+   에디터(.sqled{position:absolute;inset:0})와 결과 그리드는 부모의 확정 높이를
+   요구하는 IDE형 고정 패널이라, min-height 만으로는 높이 0 으로 붕괴한다.
+   520px 은 작은 화면에서도 에디터가 쓸 만한 최소치. */
+.view[data-view="workbench"].is-active {
+  height: var(--view-min-h);
+  min-height: 520px;
+}
 
 /* 워크벤치 = 좌측 도크(SQL 목록) + 본체 */
 .wb-layout { display: flex; height: 100%; position: relative; }

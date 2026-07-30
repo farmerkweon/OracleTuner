@@ -1,0 +1,20 @@
+@startuml
+!pragma layout smetana
+title ${sqlflow.title}
+
+actor "${sqlflow.user}" as USER
+participant "${sqlflow.editor}" as EDITOR
+participant "${sqlflow.api}" as API
+participant "${sqlflow.bridge}" as BRIDGE
+database "${sqlflow.oracle}" as ORACLE
+participant "${sqlflow.grid}" as GRID
+
+USER -> EDITOR : ${sqlflow.step1}
+EDITOR -> API : ${sqlflow.step2}
+API -> BRIDGE : ${sqlflow.step3}
+BRIDGE -> ORACLE : ${sqlflow.step4}
+ORACLE --> BRIDGE : ${sqlflow.step5}
+BRIDGE --> API : ${sqlflow.step6}
+API --> GRID : ${sqlflow.step7}
+
+@enduml

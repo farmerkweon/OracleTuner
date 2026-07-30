@@ -26,6 +26,10 @@ java/lib/*.jar
 .DS_Store
 Thumbs.db
 
+# PlantUML(MIT 변종) jar — Maven Central 에서 받는다(design/fetch-plantuml.js).
+# 렌더 결과 SVG(web/design/*.svg)는 커밋 대상이지만 jar 자체는 배포물·git 에 넣지 않는다.
+design/vendor/
+
 # ── 도구 상태 ─────────────────────────────────────────────────────────────
 .omc/
 *.log

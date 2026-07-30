@@ -1,0 +1,23 @@
+@startuml
+!pragma layout smetana
+title ${storage.title}
+
+package "${storage.node}" {
+  [${storage.snippetstore}] as SSTORE
+  [${storage.tuningstore}] as TSTORE
+  [${storage.connstore}] as CSTORE
+}
+
+database "${storage.sqlite}" as SQLITE
+folder "${storage.filemode}" as FILES
+
+SSTORE --> SQLITE : ${storage.default}
+TSTORE --> SQLITE : ${storage.default}
+CSTORE --> SQLITE : ${storage.default}
+SQLITE ..> FILES : ${storage.fallback}
+
+note bottom of FILES
+  ${storage.note}
+end note
+
+@enduml

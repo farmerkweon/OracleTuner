@@ -1,0 +1,21 @@
+@startuml
+!pragma layout smetana
+title ${deploy.title}
+
+package "${deploy.installed}" {
+  folder "${deploy.app}" as APPDIR
+  folder "${deploy.runtime}" as RUNTIMEDIR
+  file "${deploy.version}" as VER
+}
+folder "${deploy.local}" as LOCAL
+
+package "${deploy.portable}" {
+  folder "${deploy.portableApp}" as PAPPDIR
+  folder "${deploy.portableData}" as PDATA
+}
+
+APPDIR --> LOCAL : ${deploy.installedArrow}
+RUNTIMEDIR --> APPDIR : ${deploy.jreArrow}
+PAPPDIR --> PDATA : ${deploy.portableArrow}
+
+@enduml

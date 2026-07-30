@@ -1,0 +1,26 @@
+@startuml
+!pragma layout smetana
+title ${overview.title}
+
+package "${overview.browser}" {
+  [${overview.webui}] as WEBUI
+}
+
+package "${overview.node}" {
+  [${overview.api}] as API
+  [${overview.staticfiles}] as STATIC
+}
+
+[${overview.bridge}] as BRIDGE
+database "${overview.oracle}" as ORACLE
+
+WEBUI --> STATIC : ${overview.arrow.static}
+WEBUI --> API : ${overview.arrow.http}
+API --> BRIDGE : ${overview.arrow.rpc}
+BRIDGE --> ORACLE : ${overview.arrow.jdbc}
+
+note bottom of ORACLE
+  ${overview.note}
+end note
+
+@enduml

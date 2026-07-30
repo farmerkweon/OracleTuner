@@ -1,0 +1,21 @@
+@startuml
+!pragma layout smetana
+title ${tournament.title}
+
+actor "${tournament.user}" as USER
+participant "${tournament.gen}" as GEN
+participant "${tournament.qual}" as QUAL
+participant "${tournament.final}" as FINAL
+database "${tournament.oracle}" as ORACLE
+
+USER -> GEN : ${tournament.step1}
+GEN -> QUAL : ${tournament.step2}
+QUAL -> ORACLE : ${tournament.step3}
+ORACLE --> QUAL : ${tournament.step4}
+QUAL --> GEN : ${tournament.step5}
+GEN -> FINAL : ${tournament.step6}
+FINAL -> ORACLE : ${tournament.step7}
+ORACLE --> FINAL : ${tournament.step8}
+FINAL --> USER : ${tournament.step9}
+
+@enduml

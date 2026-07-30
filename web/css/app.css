@@ -747,6 +747,20 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .help-app-url { font-family: var(--mono); font-size: 10.5px; color: var(--primary); word-break: break-all; }
 .help-details { margin: 8px 0; }
 .help-details summary { cursor: pointer; font-weight: 600; color: var(--text-dim); font-size: 12px; }
+
+/* 설계 보기 탭 — 빌드 시점에 렌더한 PlantUML SVG(web/design/*.svg) + 설명.
+   SVG 는 흰 배경으로 렌더되므로 다크 테마에서도 항상 흰 카드 위에 올린다. */
+.design-tab { display: flex; flex-direction: column; gap: 20px; }
+.design-fig h4 { font-size: 12.5px; margin: 0 0 8px; color: var(--primary); }
+.design-fig-img {
+  display: block; max-width: 100%; height: auto; background: #fff;
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+  cursor: zoom-in;
+}
+.design-fig-img:hover { border-color: var(--accent); }
+.design-fig p { margin: 8px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--text); }
+.design-fig-zoom { display: block; max-width: 100%; height: auto; margin: 0 auto; background: #fff; }
+
 .cap-live { margin-bottom: 4px; }
 .cap-live-tiers { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .cap-restricted td:first-child { color: var(--warn); }

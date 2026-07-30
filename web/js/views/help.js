@@ -17,11 +17,13 @@ import { $, el, esc, safeHtml } from '../util.js';
 import { t, getLang, onLangChange } from '../i18n.js';
 import { PROJECT } from '../project.js';
 import { session } from '../api.js';
+import { openDetailModal } from '../gridkit.js';
 
 const TABS = [
   { key: 'start', label: { ko: '시작하기', en: 'Getting started', ja: 'はじめに', zh: '开始使用' } },
   { key: 'keys', label: { ko: '단축키', en: 'Shortcuts', ja: 'ショートカット', zh: '快捷键' } },
   { key: 'caps', label: { ko: '권한 이해', en: 'Permissions', ja: '権限の理解', zh: '权限说明' } },
+  { key: 'design', label: { ko: '설계 보기', en: 'Architecture', ja: '設計を見る', zh: '查看设计' } },
   { key: 'about', label: { ko: '정보', en: 'About', ja: '情報', zh: '关于' } }
 ];
 
@@ -37,6 +39,16 @@ export function initHelp() {
     if (e.key === 'Escape' && !$('#modal-help').hidden) close();
   });
   onLangChange(() => { if (!$('#modal-help').hidden) render(); });
+  $('#help-content').addEventListener('click', onDesignFigClick);
+}
+
+/** 설계 보기 탭의 그림을 클릭하면 기존 상세 확대 모달(gridkit.js)을 재사용해 확대한다. */
+function onDesignFigClick(e) {
+  const img = e.target.closest('.design-fig-img');
+  if (!img) return;
+  openDetailModal(img.dataset.title || '', (body) => {
+    body.appendChild(el('img', { class: 'design-fig-zoom', src: img.src, alt: img.alt }));
+  });
 }
 
 /** 권한 탭을 바로 열도록 하는 진입점(권한 배지 클릭 시). */
@@ -71,6 +83,7 @@ function render() {
     activeTab === 'start' ? START[lang] || START.ko
     : activeTab === 'keys' ? KEYS[lang] || KEYS.ko
     : activeTab === 'caps' ? capsHtml(lang)
+    : activeTab === 'design' ? designHtml(lang)
     : ABOUT[lang] || ABOUT.ko;
 }
 
@@ -417,6 +430,83 @@ function capsHtml(lang) {
       <p class="help-note">${esc(CAPS_NOT_CONNECTED[lang])}</p></div><hr class="help-hr">`;
   }
   return live + (CAPS_INTRO[lang] || CAPS_INTRO.ko);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  설계 보기 — 빌드 시점에 렌더해 둔 PlantUML SVG(web/design/*.svg) + 설명
+//  (.puml 소스는 design/src/*.puml — 런타임 렌더 없음. design/render.js 참고)
+// ══════════════════════════════════════════════════════════════════════════
+
+const DESIGN_ZOOM_HINT = { ko: '클릭하면 확대됩니다', en: 'Click to enlarge', ja: 'クリックで拡大', zh: '点击放大' };
+
+const DESIGN_DIAGRAMS = [
+  {
+    name: 'overview',
+    title: { ko: '전체 구조', en: 'Overall Architecture', ja: '全体構成', zh: '整体架构' },
+    desc: {
+      ko: '브라우저의 웹 UI 는 Node 서버하고만 통신한다. SQL 실행 요청은 REST API 를 거쳐 자식 프로세스로 뜬 Java 브리지에 JSON RPC 로 위임되고, 브리지만이 JDBC 로 Oracle 에 접속해 실제로 실행한다. 브라우저에서 Oracle 로 직접 이어지는 경로는 없다 — 접속정보와 실행 권한은 항상 서버·브리지 쪽에만 있다.',
+      en: 'The browser\'s Web UI only ever talks to the Node server. A SQL-run request goes through the REST API, which delegates it via JSON RPC to a Java Bridge child process; only the bridge opens a JDBC connection to Oracle. There is no path from the browser straight to Oracle — connection credentials and execution rights live only on the server/bridge side.',
+      ja: 'ブラウザの Web UI は Node サーバーとしか通信しない。SQL 実行要求は REST API を経て子プロセスの Java ブリッジへ JSON RPC で委譲され、ブリッジだけが JDBC で Oracle に接続して実行する。ブラウザから Oracle へ直接つながる経路は存在しない — 接続情報と実行権限は常にサーバー・ブリッジ側にのみある。',
+      zh: '浏览器中的 Web UI 只与 Node 服务器通信。SQL 执行请求经 REST API 转发，通过 JSON RPC 委托给子进程形式的 Java 桥接，只有桥接会通过 JDBC 连接 Oracle。浏览器没有直接连接 Oracle 的路径——连接凭据与执行权限始终只存在于服务器/桥接一侧。'
+    }
+  },
+  {
+    name: 'sqlflow',
+    title: { ko: 'SQL 실행 흐름', en: 'SQL Execution Flow', ja: 'SQL 実行フロー', zh: 'SQL 执行流程' },
+    desc: {
+      ko: '편집기에서 커서가 놓인 문장만 실행(Ctrl+Enter)하면, 요청이 REST API → Java 브리지 → JDBC 순으로 내려가 Oracle 에서 실제로 실행된다. 결과는 같은 경로를 거슬러 올라와 결과 그리드에 렌더링된다. "추측이 아니라 측정"이라는 원칙은 이 흐름 전체가 매번 실제 실행이라는 데서 나온다.',
+      en: 'Running the statement under the cursor (Ctrl+Enter) sends the request down through REST API → Java Bridge → JDBC, where it actually executes on Oracle. The result travels back up the same path and is rendered in the result grid. The tool\'s "measurement, not guesswork" principle comes from every step here being a real execution.',
+      ja: 'カーソル位置の文だけを実行(Ctrl+Enter)すると、要求は REST API → Java ブリッジ → JDBC の順に渡り、Oracle 上で実際に実行される。結果は同じ経路を逆にたどって結果グリッドに描画される。「推測ではなく計測」という原則は、この一連の流れが毎回実際の実行であることに由来する。',
+      zh: '执行光标所在的语句(Ctrl+Enter)后，请求依次经过 REST API → Java 桥接 → JDBC，在 Oracle 上真正执行。结果沿相同路径返回并渲染到结果表格中。"用测量而非猜测"这一原则，正是因为这整条链路每次都是真实执行。'
+    }
+  },
+  {
+    name: 'tournament',
+    title: { ko: '튜닝 후보 · 토너먼트', en: 'Candidates & Tournament', ja: '候補・トーナメント', zh: '候选与锦标赛' },
+    desc: {
+      ko: '튜닝 후보는 두 단계를 거친다. 예선에서는 각 후보를 1회씩만 실행해 원본과 결과가 같은지 확인하고, 결과가 다른 후보는 여기서 탈락한다. 본선에서는 예선을 통과한 후보만 반복 실행해 속도·부하를 측정하고 개선율로 순위를 매긴다. "빠르지만 결과가 틀린" 후보가 채택되지 않는 이유가 이 2단계 구조다.',
+      en: 'Candidates go through two stages. The qualifier runs each candidate once to check its result matches the original; anything that differs is eliminated right there. The final then repeat-runs only the candidates that passed, measuring speed and load, and ranks them by improvement. This two-stage design is why a "fast but wrong" candidate never gets adopted.',
+      ja: '候補は2段階を経る。予選では各候補を1回だけ実行し、原本と結果が一致するか確認する — 結果が違えばここで脱落する。本戦では予選を通過した候補だけを反復実行して速度・負荷を測定し、改善率で順位付けする。「速いが結果が誤っている」候補が採用されないのは、この2段階構成のためだ。',
+      zh: '候选要经过两个阶段。预选只执行每个候选一次，用于确认结果与原始语句是否一致——结果不同的候选在此淘汰。决赛只对通过预选的候选反复执行，测量速度与负载，并按改善率排名。正是这种两阶段结构，使"快但结果错误"的候选永远不会被采纳。'
+    }
+  },
+  {
+    name: 'storage',
+    title: { ko: '저장소', en: 'Storage', ja: 'ストレージ', zh: '存储' },
+    desc: {
+      ko: 'SQL 라이브러리·튜닝 이력·접속 정보는 기본적으로 SQLite(Node 24 내장 node:sqlite)에 저장된다. 이 런타임을 못 쓰거나(오래된 번들 Node 등) DB 초기화가 실패하면 자동으로 파일 모드(JSON/.sql)로 내려간다. 두 저장소를 동시에 쓰지는 않는다 — 항상 하나만 진실의 출처다.',
+      en: 'SQL snippets, tuning history, and connections are stored in SQLite (node:sqlite, built into Node 24) by default. If that runtime is unavailable (an older bundled Node) or DB initialization fails, it automatically falls back to file mode (JSON/.sql). The two backends are never used at once — exactly one is ever the source of truth.',
+      ja: 'SQL ライブラリ・チューニング履歴・接続情報は、既定では SQLite(Node 24 に同梱された node:sqlite)に保存される。このランタイムが使えない場合(古い同梱 Node など)や DB 初期化が失敗した場合は、自動的にファイルモード(JSON/.sql)に切り替わる。2つのバックエンドを同時に使うことはない — 常にどちらか一方だけが真実の源である。',
+      zh: 'SQL 库、调优历史、连接信息默认存储在 SQLite(Node 24 内置的 node:sqlite)中。如果该运行时不可用(如内置的旧版 Node)或数据库初始化失败，会自动回退到文件模式(JSON/.sql)。两种后端不会同时使用——始终只有一个是真相来源。'
+    }
+  },
+  {
+    name: 'deployment',
+    title: { ko: '배포 구조', en: 'Deployment Layout', ja: '配布構成', zh: '部署结构' },
+    desc: {
+      ko: '설치판은 <설치폴더>\\app\\(패치가 교체하는 서버·웹 코드)와 \\runtime\\(내장 JRE, 있을 때만), 그리고 %LOCALAPPDATA%\\OracleTuner\\(설정·데이터·로그·DB — 패치가 절대 건드리지 않음)로 나뉜다. 포터블판은 이 분리를 쓰지 않고 앱 폴더 옆에 portable.marker 를 두어 앱 폴더 상대경로에 데이터를 두는 방식으로 USB 이동성을 우선한다.',
+      en: 'The installed build splits into <install folder>\\app\\ (server/web code a patch replaces), \\runtime\\ (bundled JRE, when present), and %LOCALAPPDATA%\\OracleTuner\\ (settings, data, logs, DB — a patch never touches this). The portable build skips this split: it drops a portable.marker next to the app and keeps data at an app-relative path for USB portability.',
+      ja: 'インストール版は <インストールフォルダ>\\app\\(パッチが置き換えるサーバー・Web コード)、\\runtime\\(同梱 JRE、存在する場合のみ)、%LOCALAPPDATA%\\OracleTuner\\(設定・データ・ログ・DB — パッチは一切触れない)に分かれる。ポータブル版はこの分離を使わず、アプリのそばに portable.marker を置き、アプリフォルダ相対パスにデータを保持して USB 可搬性を優先する。',
+      zh: '安装版分为 <安装文件夹>\\app\\(补丁会替换的服务器/网页代码)、\\runtime\\(内置 JRE，如果存在)，以及 %LOCALAPPDATA%\\OracleTuner\\(设置、数据、日志、数据库——补丁绝不会触碰)。便携版不采用这种划分：它在应用旁放置 portable.marker，并将数据保存在相对于应用文件夹的路径下，以保证可移动性。'
+    }
+  }
+];
+
+function designHtml(lang) {
+  const hint = esc(DESIGN_ZOOM_HINT[lang] || DESIGN_ZOOM_HINT.ko);
+  const figs = DESIGN_DIAGRAMS.map((d) => {
+    const title = esc(d.title[lang] || d.title.ko);
+    const desc = esc(d.desc[lang] || d.desc.ko);
+    const src = `/design/${d.name}.${lang}.svg`;
+    return `
+      <div class="design-fig">
+        <h4>${title}</h4>
+        <img class="design-fig-img" src="${src}" alt="${title}" loading="lazy"
+             data-title="${title}" title="${hint}">
+        <p>${desc}</p>
+      </div>`;
+  }).join('');
+  return `<div class="design-tab">${figs}</div>`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════

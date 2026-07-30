@@ -40,6 +40,99 @@
   --code-line: 20px;
 }
 
+/* ── 테마별 오버라이드 (8종) ──────────────────────────────────
+   Phase 0(setTheme() → <html data-ot-theme="…">) 를 전제로 동작한다.
+   값은 THEME-PALETTE.md §2A(light 5종)/§2B(dark 3종) 대응표를 그대로 옮긴 것이다 —
+   새 색을 고르지 않았다. 패밀리는 테마 이름이 아니라 그리드 명암으로 나뉜다(§1):
+   light = default·modern·ocean·forest·indigo, dark = slate·executive·dark.
+   ok/warn/danger 는 패밀리당 앵커 1세트를 공유한다(§1.1, hue 고정). */
+
+:root[data-ot-theme="default"] {
+  --bg: #f6f6f8; --panel: #ffffff; --panel-2: #fafafa;
+  --border: #e0e2e4; --border-strong: #d2d5d9;
+  --text: #222630; --text-dim: #60697b; --text-faint: #8b97a6;
+  --primary: #1976d2; --primary-dark: #1565c0; --primary-soft: #e3f2fd;
+  --accent: #4c31b9; --accent-soft: #eae6f7;
+  --ok: #1a7d4f; --ok-soft: #e6f5ee;
+  --warn: #9e5e00; --warn-soft: #fdf3e2;
+  --danger: #c62828; --danger-soft: #fdeaea;
+}
+:root[data-ot-theme="modern"] {
+  --bg: #f7f8fa; --panel: #ffffff; --panel-2: #f8fafc;
+  --border: #e1e6ec; --border-strong: #d3d9e1;
+  --text: #1d222f; --text-dim: #5c657a; --text-faint: #8895a5;
+  --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #eff6ff;
+  --accent: #6631b9; --accent-soft: #ede6f7;
+  --ok: #1a7d4f; --ok-soft: #e6f5ee;
+  --warn: #9e5e00; --warn-soft: #fdf3e2;
+  --danger: #c62828; --danger-soft: #fdeaea;
+}
+:root[data-ot-theme="ocean"] {
+  --bg: #eff6fb; --panel: #ffffff; --panel-2: #f0f9ff;
+  --border: #c9e4f2; --border-strong: #bdd7e6;
+  --text: #1b2c40; --text-dim: #5a6d88; --text-faint: #879aae;
+  --primary: #027bbd; --primary-dark: #0277bd; --primary-soft: #e1f5fe;
+  --accent: #3931b9; --accent-soft: #e7e6f7;
+  --ok: #1a7d4f; --ok-soft: #e6f5ee;
+  --warn: #9e5e00; --warn-soft: #fdf3e2;
+  --danger: #c62828; --danger-soft: #fdeaea;
+}
+:root[data-ot-theme="forest"] {
+  --bg: #f1f6f3; --panel: #ffffff; --panel-2: #f1f8f1;
+  --border: #d4e5d9; --border-strong: #c7d8cf;
+  --text: #1e2d2e; --text-dim: #5d6e79; --text-faint: #899ba4;
+  --primary: #348337; --primary-dark: #2e7d32; --primary-soft: #e8f5e9;
+  --accent: #23856b; --accent-soft: #e5f0ed;
+  --ok: #1a7d4f; --ok-soft: #e6f5ee;
+  --warn: #9e5e00; --warn-soft: #fdf3e2;
+  --danger: #c62828; --danger-soft: #fdeaea;
+}
+:root[data-ot-theme="indigo"] {
+  --bg: #f1f2f8; --panel: #ffffff; --panel-2: #f5f6ff;
+  --border: #d2d7e9; --border-strong: #c6cbdd;
+  --text: #1e243c; --text-dim: #5d6784; --text-faint: #8996ac;
+  --primary: #3949ab; --primary-dark: #283593; --primary-soft: #e8eaf6;
+  --accent: #7e31b9; --accent-soft: #f0e6f7;
+  --ok: #1a7d4f; --ok-soft: #e6f5ee;
+  --warn: #9e5e00; --warn-soft: #fdf3e2;
+  --danger: #c62828; --danger-soft: #fdeaea;
+}
+:root[data-ot-theme="slate"] {
+  --bg: #263238; --panel: #37474f; --panel-2: #2e3d44;
+  --border: #455a64; --border-strong: #667880;
+  --text: #eceff1; --text-dim: #acb2b6; --text-faint: #899195;
+  --primary: #a3b6bf; --primary-dark: #a3b5bf; --primary-soft: #374750;
+  --accent: #aeace7; --accent-soft: #384750;
+  --ok: #5fdea3; --ok-soft: #3c5959;
+  --warn: #ffb03d; --warn-soft: #49504d;
+  --danger: #eb9e9e; --danger-soft: #38474f;
+}
+:root[data-ot-theme="executive"] {
+  --bg: #0d1b2e; --panel: #0f2035; --panel-2: #0b1a2c;
+  --border: #1e3050; --border-strong: #475570;
+  --text: #cdd5e0; --text-dim: #7c8795; --text-faint: #5f6b7a;
+  --primary: #c9a227; --primary-dark: #ac801b; --primary-soft: #112135;
+  --accent: #b1da81; --accent-soft: #455d4e;
+  --ok: #5fdea3; --ok-soft: #285c58;
+  --warn: #ffb03d; --warn-soft: #5a4d38;
+  --danger: #e26f6f; --danger-soft: #2a2a3d;
+}
+:root[data-ot-theme="dark"] {
+  --bg: #1e1e1e; --panel: #2d2d2d; --panel-2: #252525;
+  --border: #444444; --border-strong: #666666;
+  --text: #e0e0e0; --text-dim: #949494; --text-faint: #767676;
+  --primary: #90caf9; --primary-dark: #42a5f5; --primary-soft: #2f3840;
+  --accent: #9589dc; --accent-soft: #2e2d2e;
+  --ok: #5fdea3; --ok-soft: #3a5a4b;
+  --warn: #ffb03d; --warn-soft: #5e4c31;
+  --danger: #e37373; --danger-soft: #2e2e2e;
+}
+
+/* forest 전용 예외: .help-support 텍스트를 var(--accent) 로 바꾸면(커밋1) forest 의
+   accent/accent-soft 대비가 3.88 로 AA(4.5) 미달이다(팔레트 §2A 각주, §4.3, §6).
+   forest 에서만 원래 리터럴로 되돌린다 — 다른 7개 테마는 var(--accent) 유지. */
+:root[data-ot-theme="forest"] .help-support { color: #4a3a78; }
+
 * { box-sizing: border-box; }
 
 html {

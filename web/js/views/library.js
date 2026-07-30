@@ -20,6 +20,34 @@ import { icon } from '../icons.js';
 import { api, session } from '../api.js';
 
 let ctx = { getSql: null, setSql: null, setDoc: null, gotoWorkbench: null };
+
+/**
+ * 데모 예제에 붙는 폴더(첫 태그) 이름. `demo/02-examples.js` 가 `tags: ['데모']` 로 심는다.
+ * 로케일과 무관한 고정 문자열이라 여기서도 상수로 고정한다.
+ */
+const DEMO_FOLDER = '데모';
+
+/**
+ * 폴더(트리 그룹) 정렬 규칙 — <b>단일 진실의 출처</b>.
+ *
+ * <p>순서: 이름순 → (태그 없음) → <b>데모</b>(항상 맨 아래).
+ * 데모는 학습용 샘플이라 사용자가 만든 폴더보다 항상 뒤에 있어야 눈에 걸리지 않는다.
+ * (태그 없음)보다도 더 아래다 — 발주자 요청: "데모 폴더는 항상 제일 아래에 위치".
+ *
+ * <p>이 규칙은 원래 목록 페이지와 워크벤치 도크 두 곳에 같은 코드로 중복돼 있었다.
+ * 한쪽만 고치면 두 화면의 순서가 어긋나므로 함수로 뽑아 양쪽이 함께 쓴다.
+ */
+function compareFolders(a, b) {
+  const rank = (name) => {
+    if (name === DEMO_FOLDER) return 2;             // 항상 맨 아래
+    if (name === t('sqls.uncategorized')) return 1; // 그 위
+    return 0;                                       // 사용자 폴더
+  };
+  const ra = rank(a);
+  const rb = rank(b);
+  if (ra !== rb) return ra - rb;
+  return a.localeCompare(b);
+}
 let lastSide = 'before';
 let selected = null;          // 현재 미리보기 중인 스니펫 이름
 let cache = [];               // 마지막으로 불러온 목록
@@ -100,12 +128,8 @@ function renderTree(items) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(it);
   }
-  // 폴더 정렬: 이름순, (태그 없음)은 맨 끝
-  const folders = [...groups.keys()].sort((a, b) => {
-    if (a === t('sqls.uncategorized')) return 1;
-    if (b === t('sqls.uncategorized')) return -1;
-    return a.localeCompare(b);
-  });
+  // 폴더 정렬 — compareFolders 참조 (이름순 → (태그 없음) → 데모)
+  const folders = [...groups.keys()].sort(compareFolders);
 
   for (const folder of folders) {
     const rows = groups.get(folder).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -346,11 +370,7 @@ export async function renderDock(hostEl) {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(it);
     }
-    const folders = [...groups.keys()].sort((a, b) => {
-      if (a === t('sqls.uncategorized')) return 1;
-      if (b === t('sqls.uncategorized')) return -1;
-      return a.localeCompare(b);
-    });
+    const folders = [...groups.keys()].sort(compareFolders);
     for (const folder of folders) {
       const rows = groups.get(folder).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
       const node = el('div', { class: 'tree-folder' });
@@ -412,7 +432,8 @@ export function openModal(side) {
   $('#lib-tags').value = '';
   $('#lib-desc').value = '';
   // 폴더 = 첫 번째 태그. 기존 폴더 목록을 제시하고 새 이름도 입력할 수 있게 한다.
-  const folders = [...new Set(cache.map((s) => (s.tags && s.tags[0]) || '').filter(Boolean))].sort();
+  // 저장 모달의 폴더 자동완성도 트리와 같은 순서로 보여준다(데모는 맨 아래).
+  const folders = [...new Set(cache.map((s) => (s.tags && s.tags[0]) || '').filter(Boolean))].sort(compareFolders);
   const dl = $('#lib-folder-list');
   dl.innerHTML = folders.map((f) => `<option value="${esc(f)}"></option>`).join('');
   $('#lib-folder').value = '';

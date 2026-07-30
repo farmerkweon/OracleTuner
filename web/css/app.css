@@ -635,9 +635,7 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .btn-primary:hover:not(:disabled) { background: var(--primary-dark); border-color: var(--primary-dark); }
 .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-accent:hover:not(:disabled) { filter: brightness(1.08); }
-/* .btn-danger 의 color:#fff — 팔레트 §4.4 는 .btn-primary/.btn-accent/#btn-help:hover 만 dark 패밀리
-   오버라이드 대상으로 명시하고 .btn-danger 는 언급하지 않는다(문서 공백, WARN). dark 3종의 --danger
-   가 밝은 파스텔(텍스트용으로 튜닝됨)이라 흰 글자와 대비가 낮을 수 있음 — Phase 3 스크린샷에서 확인. */
+/* .btn-danger 의 color:#fff — light 5종은 그대로 통과(실측 5.62). dark 3종은 아래에서 오버라이드한다. */
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn-danger.btn-ghost { background: var(--panel); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, var(--panel)); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
@@ -652,7 +650,15 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 :root[data-ot-theme="dark"] .btn-accent,
 :root[data-ot-theme="slate"] #btn-help:hover,
 :root[data-ot-theme="executive"] #btn-help:hover,
-:root[data-ot-theme="dark"] #btn-help:hover { color: var(--bg); }
+:root[data-ot-theme="dark"] #btn-help:hover,
+/* .btn-danger 도 같은 이유로 포함한다. 팔레트 §4.4 는 이 셀렉터를 빠뜨렸고(문서 공백),
+   구현 에이전트가 WARN 으로 남겼다. 총괄이 8테마 전부 실측해 확인한 결과 그 우려가 맞았다 —
+   흰 글자 기준 slate 2.12 / executive 3.12 / dark 3.01 로 AA(4.5) 미달이다.
+   dark 3종의 --danger 는 어두운 배경 위 "텍스트"용으로 밝게 튜닝된 파스텔이라
+   버튼 배경으로 쓰면 흰 글자가 묻힌다. */
+:root[data-ot-theme="slate"] .btn-danger,
+:root[data-ot-theme="executive"] .btn-danger,
+:root[data-ot-theme="dark"] .btn-danger { color: var(--bg); }
 .btn-ghost:hover:not(:disabled) { background: var(--panel-2); border-color: var(--border); }
 /* 아이콘 버튼 (Open Grid 아이콘 활용) */
 .btn.has-icon { display: inline-flex; align-items: center; gap: 5px; }

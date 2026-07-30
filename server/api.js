@@ -675,6 +675,27 @@ route('POST', '/api/sql/tournament', async ({ body }) => {
   };
 });
 
+/**
+ * 토너먼트 진행률 폴링. Java 가 stdout 으로 흘린 progress 이벤트를 bridge.js 가 메모리에
+ * 캐시해 둔 것을 그대로 읽는다 — 500ms 마다 불리므로 DB·브리지에는 접근하지 않는다.
+ * 진행 정보가 없어도 404 가 아니라 200 + {running:false} 를 준다(폴링 쪽 콘솔 오염 방지).
+ */
+route('GET', '/api/sql/tournament/progress', async ({ query }) => {
+  const sid = query.get('sessionId');
+  if (!sid) return { running: false };
+  const p = bridge.getProgress(sid);
+  if (!p) return { running: false };
+  return {
+    running: !p.finished,
+    done: p.done,
+    total: p.total,
+    phase: p.phase,
+    label: p.label,
+    startedAt: p.startedAt,
+    finished: p.finished
+  };
+});
+
 // ── 메타데이터 ─────────────────────────────────────────────────────────────
 
 const metaCmds = {

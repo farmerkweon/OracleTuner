@@ -34,6 +34,8 @@ class Bridge {
     this.lastError = null;
     this.startedAt = null;
     this.exitCount = 0;
+    /** 세션별 최신 진행률(토너먼트). id → { done, total, phase, label, startedAt, finished, ts } */
+    this.progressBySession = new Map();
   }
 
   /** 현재 상태 요약(진단 화면용). */
@@ -143,6 +145,11 @@ class Bridge {
             }
             continue;
           }
+          if (msg.event) {
+            // event 필드가 있는 메시지는 진행 이벤트다 — promise 를 resolve 하지 않는다.
+            this._handleEvent(msg);
+            continue;
+          }
           this._resolve(msg);
         }
       });
@@ -174,6 +181,7 @@ class Bridge {
         this.lastError = why;
         for (const [, p] of this.pending) {
           clearTimeout(p.timer);
+          if (p.cmd === 'tournament' && p.sessionId) this._finishProgress(p.sessionId);
           p.reject(new Error(`${why} — 요청이 취소되었습니다. 다시 시도하면 자동으로 다시 띄웁니다.`));
         }
         this.pending.clear();
@@ -197,12 +205,48 @@ class Bridge {
     }
     this.pending.delete(msg.id);
     clearTimeout(p.timer);
+    if (p.cmd === 'tournament' && p.sessionId) this._finishProgress(p.sessionId);
     if (msg.ok) p.resolve(msg.data);
     else {
       const err = new Error((msg.error && msg.error.message) || '알 수 없는 오류');
       err.detail = msg.error || null;
       p.reject(err);
     }
+  }
+
+  /** 진행 이벤트(예: 토너먼트 progress) 처리. 요청 id 로 대기 중인 요청을 찾아 세션을 알아낸다. */
+  _handleEvent(msg) {
+    if (msg.event !== 'progress') return;
+    const p = this.pending.get(msg.id);
+    const sessionId = (p && p.sessionId) || msg.sessionId;
+    if (!sessionId) return;
+    const prev = this.progressBySession.get(sessionId);
+    this.progressBySession.set(sessionId, {
+      done: msg.done,
+      total: msg.total,
+      phase: msg.phase || null,
+      label: msg.label || null,
+      startedAt: (prev && prev.startedAt) || Date.now(),
+      finished: false,
+      ts: Date.now()
+    });
+  }
+
+  /** 토너먼트가 끝났음을 표시한다(정상·실패·타임아웃 무관). UI 가 99% 에서 멈추지 않게 한다. */
+  _finishProgress(sessionId) {
+    const prev = this.progressBySession.get(sessionId);
+    if (!prev) return;
+    this.progressBySession.set(sessionId, {
+      ...prev,
+      done: prev.total != null ? prev.total : prev.done,
+      finished: true,
+      ts: Date.now()
+    });
+  }
+
+  /** 세션의 최신 토너먼트 진행률(없으면 null). api.js 가 폴링 라우트에서 쓴다. */
+  getProgress(sessionId) {
+    return this.progressBySession.get(sessionId) || null;
   }
 
   /**
@@ -219,17 +263,27 @@ class Bridge {
     const id = String(++this.seq);
     const payload = JSON.stringify({ id, cmd, params: params || {} });
     const ms = timeoutMs || 120000;
+    const sessionId = (params && params.sessionId) || null;
+    if (cmd === 'tournament' && sessionId) {
+      // 첫 이벤트가 오기 전까지는 total 을 모른다 — 불확정 상태로 시작해 폴링이 바로 running:true 를 보게 한다.
+      this.progressBySession.set(sessionId, {
+        done: 0, total: null, phase: null, label: null,
+        startedAt: Date.now(), finished: false, ts: Date.now()
+      });
+    }
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
+        if (cmd === 'tournament' && sessionId) this._finishProgress(sessionId);
         reject(new Error(`요청 시간 초과(${Math.round(ms / 1000)}초): ${cmd}`));
       }, ms);
-      this.pending.set(id, { resolve, reject, timer, cmd });
+      this.pending.set(id, { resolve, reject, timer, cmd, sessionId });
       this.proc.stdin.write(payload + '\n', 'utf8', (err) => {
         if (err) {
           clearTimeout(timer);
           this.pending.delete(id);
+          if (cmd === 'tournament' && sessionId) this._finishProgress(sessionId);
           reject(err);
         }
       });

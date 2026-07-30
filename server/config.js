@@ -341,3 +341,27 @@ module.exports = {
   resolveDriverJars, discoverDriverJars, driverClasspath,
   diagnose, deepMerge
 };
+
+// ── CLI (설치 위저드가 자식 프로세스로 호출 — FIX-SPEC-slice-H Phase 3) ──────────
+//
+// installer/wizard.ps1 은 PowerShell 이라 이 모듈을 직접 require 할 수 없다. 아래 CLI 는
+// 기존 JDK 탐색 로직(discoverJavaHomes/resolveJava)을 그대로 감싸기만 한다 — 새로 만들지
+// 않는다("server/config.js 의 기존 JDK 탐색을 재사용하라(새로 구현하지 마라)").
+//
+//   node server/config.js --discover-java
+//     → [{"home":"...","source":"...","hasJavac":true,"version":"..."}, ...]
+//   node server/config.js --check-java "C:\Path\To\JDK"
+//     → {"java":"...","javac":"...","home":"...","source":"...","version":"...","error":null}
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  const cmd = args[0];
+  if (cmd === '--discover-java') {
+    process.stdout.write(JSON.stringify(discoverJavaHomes()) + '\n');
+  } else if (cmd === '--check-java') {
+    const home = args[1] || '';
+    process.stdout.write(JSON.stringify(resolveJava({ java: { home } })) + '\n');
+  } else {
+    process.stderr.write('사용법: node config.js --discover-java | --check-java <home>\n');
+    process.exitCode = 2;
+  }
+}

@@ -449,6 +449,7 @@ function aboutHtml(lang) {
       supportTitle: '개발자를 응원해 주세요 🙏',
       supportText: '이 도구가 도움이 되셨다면, 개발자를 위해 아래 두 앱을 휴대폰에 설치하고 즐겨 주세요. 큰 힘이 됩니다.',
       appLotto: '로또 스도쿠 (Google Play)',
+      appLottoDesc: '한국 로또는 물론 미국 파워볼과 각국 로또의 번호 생성을 지원합니다.',
       appArt: '아트 그리드 (Google Play)',
       iosNote: '여력이 되면 아이폰 사용자를 위해서도 만들어 보겠습니다.',
       shareNote: '앱이 만족스러우면 앱의 공유 기능으로 주위 분들께 전해 주시면 참으로 감사하겠습니다.',
@@ -473,6 +474,7 @@ function aboutHtml(lang) {
       supportTitle: 'Support the developer 🙏',
       supportText: 'If this tool helped you, please install and enjoy the two apps below on your phone — it means a lot to the developer.',
       appLotto: 'Lotto Sudoku (Google Play)',
+      appLottoDesc: 'Generates numbers not only for the Korean Lotto but also for the US Powerball and lotteries in many other countries.',
       appArt: 'Art Grid (Google Play)',
       iosNote: 'If time allows, I will try to make iPhone versions too.',
       shareNote: 'If you enjoy an app, sharing it with people around you via its share feature would be deeply appreciated.',
@@ -497,6 +499,7 @@ function aboutHtml(lang) {
       supportTitle: '開発者を応援してください 🙏',
       supportText: 'このツールが役立ったら、開発者のために下記の 2 つのアプリをスマホに入れて楽しんでください。とても励みになります。',
       appLotto: 'ロト数独 (Google Play)',
+      appLottoDesc: '韓国ロトはもちろん、米国パワーボールや各国の宝くじの番号生成に対応しています。',
       appArt: 'アートグリッド (Google Play)',
       iosNote: '余裕ができれば iPhone 版も作ってみます。',
       shareNote: 'アプリが気に入ったら、共有機能で周りの方に伝えていただけると大変ありがたいです。',
@@ -521,6 +524,7 @@ function aboutHtml(lang) {
       supportTitle: '支持开发者 🙏',
       supportText: '如果本工具对你有帮助，请在手机上安装并体验下面两款应用 —— 对开发者是很大的鼓励。',
       appLotto: '乐透数独 (Google Play)',
+      appLottoDesc: '不仅支持韩国乐透，还支持美国强力球以及各国彩票的号码生成。',
       appArt: 'Art Grid (Google Play)',
       iosNote: '有余力的话，也会尝试为 iPhone 用户制作。',
       shareNote: '如果你喜欢这款应用，通过应用的分享功能推荐给身边的人将不胜感激。',
@@ -562,6 +566,7 @@ function aboutHtml(lang) {
       <div class="help-apps">
         <a class="help-app" href="https://play.google.com/store/apps/details?id=com.foxnail.lotto_sudoku" target="_blank" rel="noopener">
           <span class="help-app-name">🎱 ${esc(L.appLotto)}</span>
+          <span class="help-app-desc">${esc(L.appLottoDesc)}</span>
           <span class="help-app-url">https://play.google.com/store/apps/details?id=com.foxnail.lotto_sudoku</span>
         </a>
         <a class="help-app" href="https://play.google.com/store/apps/details?id=com.artgrid.app.free" target="_blank" rel="noopener">

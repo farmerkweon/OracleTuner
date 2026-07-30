@@ -59,9 +59,12 @@ const SHOT_TIMEOUT_MS = 15000;
  */
 const TARGETS = [
   { name: 'topbar', view: '', pick: '', pickAction: '', rtab: '', scroll: '', x: 0, y: 0, w: 1440, h: 47 },
-  { name: 'sqllist', view: 'sqls', pick: '.tree-leaf', pickAction: 'click', rtab: '', scroll: '', x: 0, y: 82, w: 1440, h: 430 },
-  { name: 'workbench', view: 'sqls', pick: '.tree-leaf', pickAction: 'dblclick', rtab: '', scroll: '', x: 230, y: 82, w: 1210, h: 790 },
-  { name: 'tournament', view: 'sqls', pick: '.tree-leaf', pickAction: 'dblclick', rtab: 'cands', scroll: '', x: 230, y: 430, w: 1210, h: 442 },
+  // sqllist: 트리 10항목이 실측 ~390px 까지 채운다(430 은 그 아래 여백이 40px 남음) → 405 로 조임.
+  { name: 'sqllist', view: 'sqls', pick: '.tree-leaf', pickAction: 'click', rtab: '', scroll: '', x: 0, y: 82, w: 1440, h: 405 },
+  // workbench: 편집기(6줄 SQL)+결과 탭 안내문이 실측 ~y402 에서 끝난다(790 은 그 아래가 전부 빈 캔버스) → 420 으로 조임.
+  { name: 'workbench', view: 'sqls', pick: '.tree-leaf', pickAction: 'dblclick', rtab: '', scroll: '', x: 230, y: 82, w: 1210, h: 420 },
+  // tournament: 안내문이 실측 ~y165(en 2줄 기준 최대치) 에서 끝난다(442 는 아래 55%+ 가 빈 캔버스) → 180 으로 조임.
+  { name: 'tournament', view: 'sqls', pick: '.tree-leaf', pickAction: 'dblclick', rtab: 'cands', scroll: '', x: 230, y: 430, w: 1210, h: 180 },
   { name: 'settings', view: 'settings', pick: '', pickAction: '', rtab: '', scroll: '.card:has(#cfg-safe-mode)', x: 230, y: 480, w: 980, h: 360 }
 ];
 

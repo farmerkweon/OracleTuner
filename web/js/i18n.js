@@ -34,23 +34,6 @@ const M = {
   'top.language': { ko: '언어', en: 'Language', ja: '言語', zh: '语言' },
   'top.help': { ko: '도움말', en: 'Help', ja: 'ヘルプ', zh: '帮助' },
   'top.helpTip': { ko: '도움말 (F1)', en: 'Help (F1)', ja: 'ヘルプ (F1)', zh: '帮助 (F1)' },
-  'top.install': { ko: '즐겨찾기 추가', en: 'Add to Favorites', ja: 'お気に入りに追加', zh: '添加到收藏夹' },
-  'top.installTip': { ko: '앱으로 설치해 즐겨찾기처럼 사용', en: 'Install as an app (use it like a bookmark)', ja: 'アプリとしてインストール（お気に入りのように使えます）', zh: '安装为应用（像收藏夹一样使用）' },
-  'install.doneToast': { ko: '설치되었습니다. 이제 바로가기로 바로 열 수 있습니다.', en: 'Installed. You can now open it straight from a shortcut.', ja: 'インストールしました。ショートカットからすぐに開けます。', zh: '已安装。现在可以直接从快捷方式打开。' },
-  'install.ctrlDHint': { ko: 'Ctrl+D 를 눌러 즐겨찾기(북마크)에 추가하세요.', en: 'Press Ctrl+D to add this page to your bookmarks.', ja: 'Ctrl+D を押してブックマークに追加してください。', zh: '按 Ctrl+D 将此页面添加到收藏夹。' },
-  'install.title': { ko: '앱으로 설치할 수 없는 상태입니다', en: 'This app cannot be installed right now', ja: 'アプリとしてインストールできない状態です', zh: '当前无法安装为应用' },
-  'install.chromeMenuHint': {
-    ko: '아래가 모두 정상인데도 프롬프트가 오지 않으면, 크롬 메뉴(⋮) → 캐스트·저장·공유 → “페이지를 앱으로 설치”로 직접 설치할 수 있습니다. 예전에 설치한 기록이 남아 있으면 크롬을 완전히 종료했다가 다시 열어야 프롬프트가 살아납니다.',
-    en: 'If everything below looks fine but no prompt appears, install it directly from the Chrome menu (⋮) → Cast, save and share → “Install page as app”. If you installed it before, fully quit and reopen Chrome to make the prompt come back.',
-    ja: '以下がすべて正常なのにプロンプトが出ない場合は、Chrome メニュー(⋮) → キャスト・保存と共有 →「ページをアプリとしてインストール」から直接インストールできます。以前インストールした記録が残っていると、Chrome を完全に終了して開き直す必要があります。',
-    zh: '如果下面各项都正常却没有出现提示，可以从 Chrome 菜单(⋮) → 投放、保存和共享 →“将网页安装为应用”直接安装。如果之前安装过，需要完全退出并重新打开 Chrome 才会再次出现提示。'
-  },
-  'install.whyText': {
-    ko: '브라우저는 자바스크립트로 즐겨찾기를 직접 추가하지 못하게 막고 있습니다. 대신 앱으로 설치하면 아이콘이 생겨 즐겨찾기처럼 쓸 수 있는데, 지금은 브라우저가 설치 조건을 아직 만족하지 않았다고 판단하고 있습니다. 아래는 확인된 사실입니다.',
-    en: 'Browsers no longer let JavaScript add bookmarks directly. Installing as an app gives you an icon you can use like a bookmark, but your browser has not yet reported this page as installable. Here is what was actually checked.',
-    ja: 'ブラウザは JavaScript から直接ブックマークを追加できないようにしています。アプリとしてインストールするとアイコンができてお気に入りのように使えますが、現在ブラウザはインストール条件を満たしていないと判断しています。以下は実際に確認した内容です。',
-    zh: '浏览器不再允许 JavaScript 直接添加收藏。安装为应用后会生成图标，可以像收藏一样使用，但目前浏览器判定尚未满足安装条件。以下是实际检查的结果。'
-  },
 
   // ── 상단 탭 ──
   'nav.sqls': { ko: 'SQL 목록', en: 'SQL List', ja: 'SQL 一覧', zh: 'SQL 列表' },

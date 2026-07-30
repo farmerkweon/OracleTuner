@@ -194,10 +194,10 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .editor-host { flex: 1; min-height: 0; position: relative; }
 
 /* SQL 에디터 — textarea 위에 하이라이팅된 <pre> 를 겹친다 */
-.sqled { position: absolute; inset: 0; display: flex; background: #fff; overflow: hidden; }
+.sqled { position: absolute; inset: 0; display: flex; background: var(--panel); overflow: hidden; }
 .sqled-gutter {
   flex: 0 0 auto; min-width: 40px; padding: 8px 6px 8px 0;
-  text-align: right; background: #fafbfc; border-right: 1px solid var(--border);
+  text-align: right; background: var(--panel-2); border-right: 1px solid var(--border);
   font-family: var(--mono); font-size: var(--code-size); line-height: var(--code-line);
   color: var(--text-faint); user-select: none; overflow: hidden; white-space: pre;
 }
@@ -209,14 +209,14 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
   border: 0;
 }
 .sqled-highlight {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; top: 0; left: 0; pointer-events: none;
   min-width: 100%; min-height: 100%;
-  color: var(--text); overflow: hidden;
+  color: var(--text);
 }
 .sqled-input {
   position: relative; display: block;
   width: 100%; min-height: 100%;
-  background: transparent; color: transparent; caret-color: #111;
+  background: transparent; color: transparent; caret-color: var(--text);
   resize: none; outline: none; overflow: hidden;
 }
 .sqled-input::selection { background: rgba(25,118,210,.24); }

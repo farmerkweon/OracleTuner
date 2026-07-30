@@ -38,9 +38,11 @@ function initShell() {
     tab.addEventListener('click', () => switchView(tab.dataset.view));
   }
 
+  const DEFAULT_THEME = 'forest';
   const themeSel = $('#sel-theme');
   const saved = localStorage.getItem('ot.theme');
-  if (saved) themeSel.value = saved;
+  themeSel.value = saved || DEFAULT_THEME;
+  if (![...themeSel.options].some(o => o.value === themeSel.value)) themeSel.value = DEFAULT_THEME;
   setTheme(themeSel.value);
   themeSel.addEventListener('change', () => {
     setTheme(themeSel.value);

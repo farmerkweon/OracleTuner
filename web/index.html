@@ -3,7 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1976d2">
 <title>Oracle Tuner — SQL 튜닝 워크벤치</title>
+
+<!-- 파비콘 · PWA 아이콘 (언어 무관, 1벌) -->
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="alternate icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+<!-- PWA manifest — 단일 파일 규격이라 다국어를 못 담는다. 로케일별 4벌을 두고
+     i18n.js 의 onLangChange 에서 href 를 교체한다(web/js/app.js 참고). -->
+<link rel="manifest" id="link-manifest" href="/manifest.ko.webmanifest">
 
 <!-- Open Grid 스타일 (npm 패키지 dist 를 그대로 서빙) -->
 <link rel="stylesheet" href="/vendor/open-grid/open-grid-base.css">
@@ -49,6 +59,10 @@
         <option value="dark">dark</option>
       </select>
     </label>
+    <button id="btn-install" class="btn btn-ghost has-icon" data-i18n-title="top.installTip">
+      <span class="ic"><svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 1.25a.75.75 0 0 1 .75.75v7.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 1 1 1.06-1.06l2.22 2.22V2a.75.75 0 0 1 .75-.75ZM2.75 13a.75.75 0 0 0 0 1.5h10.5a.75.75 0 0 0 0-1.5H2.75Z"/></svg></span>
+      <span class="ic-label" data-i18n="top.install">즐겨찾기 추가</span>
+    </button>
     <button id="btn-help" class="btn btn-ghost" data-icon="help" data-i18n="top.help" data-i18n-title="top.helpTip">도움말</button>
   </div>
 </header>

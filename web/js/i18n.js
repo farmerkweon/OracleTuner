@@ -34,6 +34,10 @@ const M = {
   'top.language': { ko: '언어', en: 'Language', ja: '言語', zh: '语言' },
   'top.help': { ko: '도움말', en: 'Help', ja: 'ヘルプ', zh: '帮助' },
   'top.helpTip': { ko: '도움말 (F1)', en: 'Help (F1)', ja: 'ヘルプ (F1)', zh: '帮助 (F1)' },
+  'top.install': { ko: '즐겨찾기 추가', en: 'Add to Favorites', ja: 'お気に入りに追加', zh: '添加到收藏夹' },
+  'top.installTip': { ko: '앱으로 설치해 즐겨찾기처럼 사용', en: 'Install as an app (use it like a bookmark)', ja: 'アプリとしてインストール（お気に入りのように使えます）', zh: '安装为应用（像收藏夹一样使用）' },
+  'install.doneToast': { ko: '설치되었습니다. 이제 바로가기로 바로 열 수 있습니다.', en: 'Installed. You can now open it straight from a shortcut.', ja: 'インストールしました。ショートカットからすぐに開けます。', zh: '已安装。现在可以直接从快捷方式打开。' },
+  'install.ctrlDHint': { ko: 'Ctrl+D 를 눌러 즐겨찾기(북마크)에 추가하세요.', en: 'Press Ctrl+D to add this page to your bookmarks.', ja: 'Ctrl+D を押してブックマークに追加してください。', zh: '按 Ctrl+D 将此页面添加到收藏夹。' },
 
   // ── 상단 탭 ──
   'nav.sqls': { ko: 'SQL 목록', en: 'SQL List', ja: 'SQL 一覧', zh: 'SQL 列表' },

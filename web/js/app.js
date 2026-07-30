@@ -7,7 +7,7 @@
 import { $, $$, toast, logMsg, errText } from './util.js';
 import { api, session } from './api.js';
 import { setTheme, resizeAll } from './gridkit.js';
-import { initLang, setLang, applyDom, onLangChange, LANGS } from './i18n.js';
+import { initLang, setLang, applyDom, onLangChange, LANGS, t } from './i18n.js';
 import { applyIcons } from './icons.js';
 import { applyProjectLinks } from './project.js';
 import { initConnect, renderStatus, open as openConnect } from './views/connect.js';
@@ -22,6 +22,26 @@ import { initHintWizard } from './views/hint-wizard.js';
 
 // 토크나이저는 서버/브라우저가 같은 파일을 쓴다(UMD → globalThis.SqlTokenizer)
 await import('/shared/sql-tokenizer.js');
+
+// ── PWA 설치("즐겨찾기 추가") ────────────────────────────────────────────
+// 브라우저는 JS 로 진짜 북마크를 추가하는 API 를 더는 허용하지 않는다(IE 의
+// window.external.AddFavorite 는 사라졌다). 대신 PWA 설치로 "바로가기"를 만든다.
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  toast(t('install.doneToast'), 'ok');
+});
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js').catch((e) => logMsg(`서비스워커 등록 실패: ${e.message}`));
+}
 
 function switchView(name) {
   for (const t of $$('.rail-tab')) t.classList.toggle('is-active', t.dataset.view === name);
@@ -57,6 +77,29 @@ function initShell() {
   applyProjectLinks(); // 푸터 등의 저장소/라이선스 링크를 실제 주소로
   setLang(langSel.value); // 그리드 로케일까지 맞춘다
   langSel.addEventListener('change', () => { setLang(langSel.value); applyIcons(); });
+
+  // manifest 는 한 파일에 다국어를 담을 수 없어 언어별로 4벌을 두고, 언어가 바뀔 때마다 링크를 바꿔 끼운다
+  const linkManifest = $('#link-manifest');
+  if (linkManifest) linkManifest.href = `/manifest.${langSel.value}.webmanifest`;
+  onLangChange((code) => { if (linkManifest) linkManifest.href = `/manifest.${code}.webmanifest`; });
+
+  // 즐겨찾기 추가(PWA 설치) 버튼
+  const installBtn = $('#btn-install');
+  if (installBtn) {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (standalone) installBtn.hidden = true;
+    installBtn.addEventListener('click', async () => {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        if (choice.outcome === 'accepted') installBtn.hidden = true;
+      } else {
+        // Ctrl+D 를 가로챌 수 없는 브라우저/설치 미지원 환경 — 기존 토스트로 안내한다(새 모달을 만들지 않는다)
+        toast(t('install.ctrlDHint'), '', 8000);
+      }
+    });
+  }
 
   $('#btn-save-tuning').addEventListener('click', saveCurrentTuning);
   const footHelp = $('#footer-help');
@@ -113,6 +156,7 @@ async function onConnectionChanged(result) {
 }
 
 async function boot() {
+  registerServiceWorker();
   initShell();
   initWorkbench();
   initConnect({ onConnected: onConnectionChanged });

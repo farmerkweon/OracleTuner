@@ -59,10 +59,10 @@
   "storage.default": { "ko": "기본", "en": "default", "ja": "既定", "zh": "默认" },
   "storage.fallback": { "ko": "초기화 실패 시 폴백", "en": "Fallback on init failure", "ja": "初期化失敗時フォールバック", "zh": "初始化失败时回退" },
   "storage.note": {
-    "ko": "node:sqlite 를 못 쓰면(오래된 번들 Node 등) 자동으로 파일 모드로 내려간다. 이중 쓰기는 하지 않는다 — 항상 하나의 저장소만 진실의 출처다.",
-    "en": "If node:sqlite is unavailable (e.g. an older bundled Node), it automatically falls back to file mode. There is no dual-write — exactly one backend is ever the source of truth.",
-    "ja": "node:sqlite が使えない場合(古い同梱 Node など)、自動的にファイルモードへ切り替わる。二重書き込みはしない — 常に1つのバックエンドだけが真実の源。",
-    "zh": "如果无法使用 node:sqlite（如内置的旧版 Node），会自动回退到文件模式。不会双写——始终只有一个后端是真相来源。"
+    "ko": "node:sqlite 를 못 쓰면(오래된 번들 Node 등)\n자동으로 파일 모드로 내려간다.\n이중 쓰기는 하지 않는다 — 항상 하나만 진실의 출처다.",
+    "en": "If node:sqlite is unavailable (e.g. an older bundled Node),\nit automatically falls back to file mode.\nThere is no dual-write — exactly one backend\nis ever the source of truth.",
+    "ja": "node:sqlite が使えない場合(古い同梱 Node など)、\n自動的にファイルモードへ切り替わる。\n二重書き込みはしない — 常に1つだけが真実の源。",
+    "zh": "如果无法使用 node:sqlite（如内置的旧版 Node），\n会自动回退到文件模式。\n不会双写——始终只有一个后端是真相来源。"
   },
 
   "deploy.title": { "ko": "배포 구조", "en": "Deployment Layout", "ja": "配布構成", "zh": "部署结构" },
@@ -97,9 +97,9 @@
   "usecase.uc.demo": { "ko": "데모 데이터 생성", "en": "Generate demo data", "ja": "デモデータ生成", "zh": "生成演示数据" },
   "usecase.grant": { "ko": "권한 부여", "en": "Grants privileges", "ja": "権限付与", "zh": "授予权限" },
   "usecase.note": {
-    "ko": "V$SQL 접근이 없으면 계측이 TIMING_ONLY 로 자동 하향된다. 실제 상태는 [권한 이해] 탭에서 확인.",
-    "en": "Without V$SQL access, measurement auto-falls back to TIMING_ONLY. See the [Permissions] tab for the real status.",
-    "ja": "V$SQL にアクセスできない場合、計測は自動的に TIMING_ONLY へ下がる。実際の状態は[権限の理解]タブで確認。",
-    "zh": "无法访问 V$SQL 时，测量会自动降级为 TIMING_ONLY。实际状态见[权限说明]标签页。"
+    "ko": "V$SQL 접근이 없으면\n계측이 TIMING_ONLY 로 자동 하향된다.\n실제 상태는 [권한 이해] 탭에서 확인.",
+    "en": "Without V$SQL access, measurement\nauto-falls back to TIMING_ONLY.\nSee the [Permissions] tab for the real status.",
+    "ja": "V$SQL にアクセスできない場合、\n計測は自動的に TIMING_ONLY へ下がる。\n実際の状態は[権限の理解]タブで確認。",
+    "zh": "无法访问 V$SQL 时，\n测量会自动降级为 TIMING_ONLY。\n实际状态见[权限说明]标签页。"
   }
 }

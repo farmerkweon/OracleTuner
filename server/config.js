@@ -43,7 +43,13 @@ const DEFAULTS = {
     maxRequestMb: 64
   },
   execution: {
-    maxRows: 5000,
+    /** ResultSet 에서 소비(consume)할 최대 행수. 성능평가를 위해 전체 행을 읽어야 하므로 크게 잡는다. */
+    maxRows: 2000000,
+    /**
+     * 응답에 보관·전송할 행수 상한. maxRows(소비 행수)와 별개다.
+     * maxRows 200만을 그대로 보관하면 JVM 힙(-Xmx768m)이 터진다.
+     */
+    keepRowsMax: 5000,
     fetchSize: 1000,
     timeoutSec: 60,
     benchRuns: 3,
@@ -54,7 +60,7 @@ const DEFAULTS = {
     autoExplain: true
   },
   ui: {
-    theme: 'default',
+    theme: 'forest',
     skin: 'rounded',
     density: 'normal',
     locale: 'ko',

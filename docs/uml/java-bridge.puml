@@ -1,0 +1,70 @@
+@startuml java-bridge
+!theme plain
+left to right direction
+
+' Components
+package "Node.js Server" {
+  class Bridge_js {
+    -proc: ChildProcess
+    -ready: boolean
+    -pending: Map<id, Promise>
+    -seq: number
+    +start(): Promise
+    +request(cmd, params): Promise
+    +stop(): Promise
+    _resolve(msg): void
+  }
+}
+
+package "Java Bridge Sidecar" {
+  class Bridge {
+    {static} -out: PrintStream
+    {static} -log: PrintStream
+    {static} -MARK: String = "@@OT@@"
+    {static} -driverJars: List<String>
+    {static} main(args[])
+    {static} handleSafely(raw): void
+    {static} dispatch(cmd, params): Object
+    {static} emit(obj): void
+  }
+
+  class Caps {
+    {static} PROBES[]: Probe[]
+    {static} probe(session, force): Map
+    {static} serverInfo(session): Map
+    {static} report(session): Map
+  }
+
+  class Plan {
+    {static} CANDIDATES[]: String[]
+    {static} explain(session, sql): Map
+    {static} displayCursor(session, format): Map
+    {static} sqlStats(session, sqlId): Map
+  }
+
+  class Probe {
+    key: String
+    label: String
+    category: String
+    sql: String
+    impact: String
+  }
+}
+
+package "Database" {
+  database Oracle {
+    PLAN_TABLE
+    V$SQL_PLAN_STATISTICS_ALL
+    DBMS_XPLAN
+  }
+}
+
+' Relations
+Bridge_js --> Bridge: stdin/stdout JSON\nlines @@OT@@ marked
+Bridge --> Caps: probe(s, force)
+Bridge --> Plan: explain(), displayCursor()
+Caps --> Probe: uses PROBES[]
+Caps --> Oracle: SELECT from V$ views\nDBMS_XPLAN package
+Plan --> Oracle: EXPLAIN PLAN\nDBMS_XPLAN.DISPLAY\nV$SQL_PLAN_STATISTICS_ALL
+
+@enduml

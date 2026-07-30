@@ -989,15 +989,35 @@ select { padding: 4px 6px; border: 1px solid var(--border-strong); border-radius
 .tag-pill.risk { background: var(--danger-soft); color: var(--danger); }
 .tag-pill.warn { background: var(--warn-soft); color: var(--warn); }
 
-.detail-panel { position: relative; padding: 12px 16px; font-size: 12.5px; line-height: 1.75; }
+/* 상세 패널이 <b>스스로</b> 스크롤 영역이 된다.
+ *
+ * 라이브러리가 만든 바깥 컨테이너(id^="og-detail-")는 고정 높이 + overflow:auto 인데,
+ * 실측해 보면 내용이 1043px 인데도 그 요소의 scrollHeight 가 clientHeight(287)와 같게 나와
+ * 휠을 굴려도 꿈쩍하지 않는다(가상 스크롤 구현과 얽힌 라이브러리 쪽 한계로 보인다).
+ * 그래서 우리가 소유한 이 엘리먼트에 스크롤을 맡긴다 — 평범한 블록 요소라 예측대로 동작한다.
+ * 발주자: "상세보기 서브그리드 클릭하고 마우스 스크롤해보면 쉽게 끝까지 스크롤할 수가 없어." */
+.detail-panel {
+  position: relative; padding: 12px 16px; font-size: 12.5px; line-height: 1.75;
+  max-height: 100%; overflow-y: auto; overscroll-behavior: contain;
+}
 .detail-panel h4 { margin: 0 0 6px; padding-right: 30px; font-size: 12.5px; color: var(--primary); }
 .detail-expand-btn { position: absolute; top: 8px; right: 10px; z-index: 3; }
 .detail-panel .dp-block { margin-bottom: 10px; }
 .detail-panel .dp-label { font-weight: 700; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
 .detail-panel code, .detail-panel pre {
-  font-family: var(--mono); font-size: 11.5px; background: #f4f6f8; padding: 1px 5px; border-radius: 4px;
+  /* 배경을 리터럴(#f4f6f8)로 두면 dark 계열에서 밝은 상자 위에 밝은 글자가 얹혀 안 읽힌다. */
+  font-family: var(--mono); font-size: 11.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 4px;
 }
-.detail-panel pre { padding: 8px 10px; overflow: auto; white-space: pre-wrap; }
+/* ★ overflow 를 주지 않는다.
+ *
+ * 예전에는 overflow:auto 였는데, 그러면 술어 블록 하나하나가 <b>저마다 스크롤 영역</b>이 되어
+ * 그리드 본문 → 상세 패널 → pre 로 스크롤이 3중 중첩됐다. 휠을 굴리면 어디가 움직일지
+ * 알 수 없고 끝까지 닿지도 않는다(실측: 상세 패널의 스크롤 여유가 0px, 휠 5회에 scrollTop 0→0).
+ * 발주자 표현: "상세보기 서브그리드 클릭하고 마우스 스크롤해보면 쉽게 끝까지 스크롤할 수가 없어."
+ *
+ * pre 가 넘치지 않게 두면 상세 패널 <b>하나만</b> 스크롤 영역이 되어 휠이 예측 가능해진다.
+ * 가로로 긴 줄은 white-space:pre-wrap 이 접어 준다. */
+.detail-panel pre { padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .num-cell { font-variant-numeric: tabular-nums; }
 .delta-good { color: var(--ok); font-weight: 700; }

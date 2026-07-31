@@ -23,6 +23,12 @@
   #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.1-installer-win-x64-no-jre"
 #endif
 
+; 결과 파일 이름에 붙는 꼬리표. Java 내장 빌드는 "-with-jre" 를 넘겨받아
+; no-jre 설치판을 덮어쓰지 않게 한다(둘 다 같은 이름으로 나오던 문제).
+#ifndef OutSuffix
+  #define OutSuffix ""
+#endif
+
 [Setup]
 AppId={{C4E2F19A-7B3D-4A86-9E51-2F8D6C0B4A73}
 AppName={#AppName}
@@ -50,7 +56,7 @@ WizardStyle=modern
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir=Output
-OutputBaseFilename=OracleTuner-{#AppVersion}-Setup
+OutputBaseFilename=OracleTuner-{#AppVersion}{#OutSuffix}-Setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 

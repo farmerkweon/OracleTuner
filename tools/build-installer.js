@@ -187,9 +187,13 @@ function buildExeWithInno(stageDir, version, withJre) {
   const outDir = path.join(P.root, 'installer', 'Output');
   fs.mkdirSync(outDir, { recursive: true });
 
+  // Java 내장 빌드는 파일 이름을 달리 한다. 안 그러면 두 빌드가 같은 이름으로 나와
+  // 나중에 돌린 쪽이 앞의 설치판을 조용히 덮어쓴다.
+  const suffix = withJre ? '-with-jre' : '';
+
   console.log(`  ISCC: ${iscc}`);
-  const r = spawnSync(iscc, [`/DSrcDir=${stageDir}`, iss], { encoding: 'utf8' });
-  const targetExe = path.join(outDir, `OracleTuner-${version}-Setup.exe`);
+  const r = spawnSync(iscc, [`/DSrcDir=${stageDir}`, `/DOutSuffix=${suffix}`, iss], { encoding: 'utf8' });
+  const targetExe = path.join(outDir, `OracleTuner-${version}${suffix}-Setup.exe`);
   const ok = r.status === 0 && fs.existsSync(targetExe);
   if (ok) {
     const size = fs.statSync(targetExe).size;

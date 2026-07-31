@@ -7,13 +7,26 @@
 ;       (server, web, shared, java, node_modules, runtime, package.json, LICENSE)
 ;
 ; 관리자 권한을 요구하지 않는다(PrivilegesRequired=lowest).
-; 사용자 폴더에 설치하면 접속정보 저장·로그 기록이 권한 문제 없이 동작한다.
-; Program Files 를 원하면 설치 중 UAC 승격을 선택할 수 있다
-; (PrivilegesRequiredOverridesAllowed=dialog). 데이터는 어느 쪽이든
-; %LOCALAPPDATA%\OracleTuner 에 저장되므로 쓰기 권한 문제가 생기지 않는다.
+;
+; ★ 기본 설치 위치는 C:\APPS\Oracle Tuner 다. Program Files 가 아니다.
+;   이유(2026-07-31 발주자 실사용 보고): Program Files 에 설치하면
+;   **접속정보가 저장되지 않는 경우가 있었다.**
+;
+;   왜 그런가 — 설계상 데이터는 %LOCALAPPDATA%\OracleTuner 에 두므로 권한 문제가
+;   없어야 맞다. 그러나 Program Files 에 넣으려면 설치 중 UAC 승격이 일어나고,
+;   승격된 설치 세션에서는
+;     ① 위저드가 쓰는 {localappdata} 가 **관리자 계정의** LOCALAPPDATA 로 잡히고
+;     ② [Run] 의 postinstall 실행도 승격 상태를 물려받을 수 있어,
+;        그 세션에서 저장한 접속정보가 **관리자 프로필**에 들어간다.
+;   다음에 평소대로(비승격) 실행하면 그 데이터가 보이지 않는다. 증상이 정확히 이것이다.
+;
+;   C:\ 아래 새 폴더는 표준 사용자도 만들 수 있고(만든 사람이 소유자가 되어 쓰기 가능),
+;   승격이 일어나지 않으므로 위 두 경로가 원천적으로 생기지 않는다.
+;   사용자가 원하면 설치 화면에서 경로를 바꿀 수 있고, Program Files 를 고르면
+;   그때만 UAC 승격을 선택할 수 있다(PrivilegesRequiredOverridesAllowed=dialog).
 
 #define AppName        "Oracle Tuner"
-#define AppVersion     "1.0.0-beta.1"
+#define AppVersion     "1.0.0-beta.2"
 #define AppPublisher   "foxnail.kr"
 #define AppURL         "https://foxnail.kr"
 #define AppLauncher    "OracleTuner.vbs"
@@ -43,7 +56,9 @@ VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} — SQL 튜닝 워크벤치
 VersionInfoCopyright=Copyright (C) 2026 foxnail.kr
 
-DefaultDirName={autopf}\{#AppName}
+; ★ {sd} = 시스템 드라이브(보통 C:). Program Files({autopf}) 로 되돌리지 말 것 —
+;   위 머리말의 승격 문제가 그대로 재발한다.
+DefaultDirName={sd}\APPS\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -52,6 +67,11 @@ PrivilegesRequiredOverridesAllowed=dialog
 ; MIT 원문(영문)을 그대로 보여준다 — 발주자 확정 사항(번역·병기 없음).
 LicenseFile={#SrcDir}\LICENSE
 UninstallDisplayName={#AppName}
+; ★ 아이콘 — 없으면 바로가기가 .vbs 를 가리키므로 윈도우 기본 스크립트 아이콘(두루마리)이 나온다.
+;   2026-07-31 발주자 지적("바탕화면 앱아이콘도 이상하게 생겼어")의 원인이 이것이었다.
+;   web/icons/icon-512.png 에서 16·24·32·48·64·128·256 7종을 담아 만든 멀티사이즈 아이콘이다.
+SetupIconFile=OracleTuner.ico
+UninstallDisplayIcon={app}\OracleTuner.ico
 WizardStyle=modern
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -112,11 +132,13 @@ Source: "{#SrcDir}\LICENSE";        DestDir: "{app}"; DestName: "LICENSE.txt"; F
 Source: "{#SrcDir}\runtime\*";      DestDir: "{app}\runtime";      Flags: ignoreversion recursesubdirs createallsubdirs
 ; 실행 런처(콘솔 창을 숨기고 node 를 띄운다)
 Source: "OracleTuner.vbs";          DestDir: "{app}";              Flags: ignoreversion
+; 바로가기가 쓸 아이콘. 런처가 .vbs 라서 이 파일이 없으면 기본 스크립트 아이콘이 나온다.
+Source: "OracleTuner.ico";          DestDir: "{app}";              Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}";       Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"
+Name: "{group}\{#AppName}";       Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"; IconFilename: "{app}\OracleTuner.ico"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"; IconFilename: "{app}\OracleTuner.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppLauncher}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
@@ -126,8 +148,11 @@ Filename: "{app}\{#AppLauncher}"; Description: "{cm:LaunchProgram,{#AppName}}"; 
 { ── 포트 선택 페이지 ──────────────────────────────────────────────────────
   위저드에서 고른 포트를 %LOCALAPPDATA%\OracleTuner\config\settings.json 에 기록한다.
   데이터를 설치 폴더가 아니라 LOCALAPPDATA 에 두는 것이 이 설계의 핵심이다 —
-  Program Files 에 설치해도 접속정보 저장에 쓰기 권한 문제가 생기지 않고,
-  패치가 사용자 데이터를 건드리지 않는다. }
+  패치가 사용자 데이터를 건드리지 않는다.
+
+  ⚠ 다만 localappdata 상수는 **설치를 실행한 계정** 기준이다. UAC 승격이 일어나면
+    관리자 프로필로 잡혀 정작 앱을 쓰는 계정에서는 안 보인다(2026-07-31 실사용 사고).
+    그래서 기본 설치 위치를 C:\APPS 로 옮겨 승격 자체가 안 생기게 했다. }
 
 var
   PortPage: TInputQueryWizardPage;

@@ -19,7 +19,7 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const P = require('../server/paths');
 
-const VERSION = require('../package.json').version + '-beta.1';
+const VERSION = require('../package.json').version + '-beta.2';
 const DIST = path.join(P.root, 'dist');
 
 /** 배포본에 포함할 항목 (src → 배포본 내 경로) */

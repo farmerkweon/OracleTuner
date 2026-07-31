@@ -35,7 +35,11 @@ const INCLUDE = [
   ['java/build.js', 'java/build.js'],
   ['package.json', 'package.json'],
   ['LICENSE', 'LICENSE'],
-  ['STATUS.md', 'STATUS.md'],
+  // ★ STATUS.md 는 **내부 릴리스 현황 문서**다. 배포 서버 업로드 경로가 적혀 있어
+  //   포터블 zip 에 동봉하면 그대로 사용자에게 나간다. 설치판에는 원래 없었고,
+  //   포터블에만 들어가던 비대칭이었다 (2026-07-31 DIST-INTEGRITY.md R1).
+  //   사용자에게 필요한 안내는 README.txt 가 담당한다.
+  // ['STATUS.md', 'STATUS.md'],   ← 되살리지 말 것
   ['node_modules/open-grid', 'node_modules/open-grid']
 ];
 
@@ -54,9 +58,12 @@ function copy(src, dst) {
 /** 배포본에 들어가면 안 되는 것(도구 상태·에디터 설정·캐시 등). */
 function isJunk(src) {
   const base = path.basename(src);
+  // ★ .sources.txt / .build-stamp.json 은 javac 빌드 부산물인데 **개발자 절대경로**를 담고 나간다.
+  //   2026-07-31 배포판 무결성 검사에서 적발(DIST-INTEGRITY.md R2/R3).
   return base === '.omc' || base === '.git' || base === '.vscode'
       || base === 'node_modules' && false // 명시적으로 넣은 것만 담는다
-      || base === '.DS_Store' || base === 'Thumbs.db';
+      || base === '.DS_Store' || base === 'Thumbs.db'
+      || base === '.sources.txt' || base === '.build-stamp.json';
 }
 
 function copyAll(stage) {

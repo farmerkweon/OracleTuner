@@ -49,7 +49,11 @@ function rmrf(p) {
 
 function isJunk(src) {
   const base = path.basename(src);
-  return base === '.omc' || base === '.git' || base === '.vscode' || base === '.DS_Store' || base === 'Thumbs.db';
+  // ★ .sources.txt / .build-stamp.json 은 javac 빌드 부산물인데 **개발자 절대경로**를 담고 나간다
+  //   (`E:/IBANK/SeTools/OracleTuner/java/src/...`, 빌드 머신 JDK 경로). 배포물에 나갈 이유가 없다.
+  //   2026-07-31 배포판 무결성 검사에서 적발(DIST-INTEGRITY.md R2/R3).
+  return base === '.omc' || base === '.git' || base === '.vscode' || base === '.DS_Store' || base === 'Thumbs.db'
+      || base === '.sources.txt' || base === '.build-stamp.json';
 }
 
 /** 배포 스테이징 디렉터리를 만든다(installer/wizard.ps1 의 $SourceRoot 가 될 폴더). */

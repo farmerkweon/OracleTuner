@@ -26,14 +26,14 @@
 ;   그때만 UAC 승격을 선택할 수 있다(PrivilegesRequiredOverridesAllowed=dialog).
 
 #define AppName        "Oracle Tuner"
-#define AppVersion     "1.0.0-beta.2"
+#define AppVersion     "1.0.0-beta.3"
 #define AppPublisher   "foxnail.kr"
 #define AppURL         "https://foxnail.kr"
 #define AppLauncher    "OracleTuner.vbs"
 
 ; 스테이징 폴더 — build-installer.js 가 /DSrcDir 로 넘겨준다. 수동 빌드용 기본값.
 #ifndef SrcDir
-  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.1-installer-win-x64-no-jre"
+  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.3-installer-win-x64-no-jre"
 #endif
 
 ; 결과 파일 이름에 붙는 꼬리표. Java 내장 빌드는 "-with-jre" 를 넘겨받아

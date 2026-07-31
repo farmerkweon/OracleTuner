@@ -33,7 +33,7 @@ const { spawnSync } = require('child_process');
 const P = require('../server/paths');
 const portable = require('./build-portable');
 
-const VERSION = require('../package.json').version + '-beta.2';
+const VERSION = require('../package.json').version + '-beta.3';
 const DIST = path.join(P.root, 'dist');
 
 /** 스테이징에 그대로 복사하는 "app" 항목(패치 설치파일이 나중에 교체할 부분과 정확히 일치). */

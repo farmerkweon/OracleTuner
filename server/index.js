@@ -12,7 +12,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 
 const P = require('./paths');
 const config = require('./config');
@@ -162,12 +162,34 @@ async function handle(req, res) {
   res.end('404 Not Found');
 }
 
+/**
+ * 기본 브라우저로 url 을 연다.
+ *
+ * ★ 윈도우에서 `start "" "<url>"` 을 쓰면 안 된다 (2026-07-31 실사용 사고).
+ *   런처(OracleTuner.vbs)가 검은 콘솔을 감추려고 node 를 `WScript.Shell.Run cmd, 0`
+ *   = SW_HIDE 로 띄우는데, **이 "창 숨김" 상태가 자식 프로세스로 상속된다.**
+ *   그래서 cmd → start → ShellExecute 로 열린 브라우저까지 숨겨진 창으로 떠서
+ *   화면에는 아무것도 안 나타난다. exec 은 오류를 내지 않으므로 로그로도 안 잡힌다.
+ *   증상: "바탕화면 아이콘을 눌러도 뭐 뜨는 게 없음" (서버는 정상 기동·응답).
+ *
+ *   explorer.exe 에 넘기면 이미 떠 있는 셸이 대신 열어주므로 숨김 상태를 물려받지 않는다.
+ *   ⚠ explorer.exe 는 성공해도 종료코드가 1 인 경우가 흔하다 — 종료코드로 실패 판정하지 말 것.
+ *
+ * 어느 방법으로 열었는지 로그에 남긴다. "왜 안 뜨지"를 로그만으로 판정할 수 있어야 한다.
+ */
 function openBrowser(url) {
-  const cmd = process.platform === 'win32' ? `start "" "${url}"`
-    : process.platform === 'darwin' ? `open "${url}"`
-    : `xdg-open "${url}"`;
+  if (process.platform === 'win32') {
+    // 1순위: explorer.exe (창 숨김 상속을 끊는다)
+    execFile('explorer.exe', [url], { windowsHide: false }, () => {
+      // 종료코드를 믿을 수 없으므로 성공/실패를 여기서 판정하지 않는다.
+    });
+    log.info(`브라우저 열기 요청: explorer.exe "${url}"`);
+    return;
+  }
+  const cmd = process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
   exec(cmd, (err) => {
     if (err) log.warn(`브라우저 자동 실행 실패(수동으로 열어주세요): ${err.message}`);
+    else log.info(`브라우저 열기 요청: ${cmd}`);
   });
 }
 

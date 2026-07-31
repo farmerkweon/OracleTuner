@@ -5,6 +5,8 @@
  * 화면 코드가 HTTP 를 몰라도 되게 하는 것이 목적이다.
  */
 
+import { t } from './i18n.js';
+
 async function call(method, path, body) {
   const opts = {
     method,
@@ -16,7 +18,7 @@ async function call(method, path, body) {
   try {
     res = await fetch(path, opts);
   } catch (e) {
-    throw new Error(`서버에 연결할 수 없습니다 (${e.message}). 서버가 떠 있는지 확인하세요.`);
+    throw new Error(t('common.serverUnreachable', { msg: e.message }));
   }
 
   const text = await res.text();

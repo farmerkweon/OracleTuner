@@ -25,7 +25,7 @@ await import('/shared/sql-tokenizer.js');
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('/sw.js').catch((e) => logMsg(`서비스워커 등록 실패: ${e.message}`));
+  navigator.serviceWorker.register('/sw.js').catch((e) => logMsg(t('boot.swFail', { msg: e.message })));
 }
 
 function switchView(name) {
@@ -114,11 +114,11 @@ async function onConnectionChanged(result) {
     await schemaOnConnected();
     const degraded = (session.capabilities && session.capabilities.degraded) || [];
     if (degraded.length) {
-      logMsg(`이 계정에서 제한되는 기능 ${degraded.length}건 — 상단 배지에 마우스를 올리면 목록이 보입니다.`);
+      logMsg(t('boot.degraded', { n: degraded.length }));
       for (const d of degraded.slice(0, 6)) logMsg(`  · ${d.label}: ${d.impact}`);
     }
     const tiers = (session.capabilities && session.capabilities.tiers) || {};
-    logMsg(`가능 수준 — 계획: ${tiers.planLabel || '-'} / 계측: ${tiers.runtimeLabel || '-'} / 딕셔너리: ${tiers.dictionaryLabel || '-'}`);
+    logMsg(t('boot.tiers', { plan: tiers.planLabel || '-', runtime: tiers.runtimeLabel || '-', dict: tiers.dictionaryLabel || '-' }));
   }
 }
 
@@ -168,18 +168,18 @@ async function boot() {
 
   renderStatus();
   refreshSqls(); // 랜딩이 SQL 목록이므로 첫 화면부터 목록을 채운다
-  logMsg('Oracle Tuner 시작');
+  logMsg(t('boot.started'));
 
   // 서버·브리지 상태 확인 → 문제가 있으면 설정 화면으로 안내
   try {
     const h = await api.health();
     if (!h.bridge.running) {
-      logMsg(`JDBC 브리지가 아직 준비되지 않았습니다: ${h.bridge.lastError || '기동 중'}`, 'err');
+      logMsg(t('boot.bridgeNotReady', { msg: h.bridge.lastError || t('boot.bridgeStarting') }), 'err');
     } else {
-      logMsg(`JDBC 브리지 준비됨 (pid ${h.bridge.pid})`, 'ok');
+      logMsg(t('boot.bridgeReady', { pid: h.bridge.pid }), 'ok');
     }
   } catch (e) {
-    logMsg(`서버 상태 확인 실패: ${errText(e)}`, 'err');
+    logMsg(t('boot.healthFail', { msg: errText(e) }), 'err');
   }
 
   try {
@@ -187,12 +187,12 @@ async function boot() {
     window.__otConfig = cfg.settings;
     const bad = (cfg.diagnostics.items || []).filter((i) => !i.ok && i.severity !== 'warn');
     if (bad.length) {
-      toast(`설정 확인이 필요합니다: ${bad.map((b) => b.label).join(', ')}`, 'warn', 8000);
+      toast(t('boot.configCheck', { items: bad.map((b) => b.label).join(', ') }), 'warn', 8000);
       switchView('settings');
       return;
     }
   } catch (e) {
-    logMsg(`설정 조회 실패: ${errText(e)}`, 'err');
+    logMsg(t('boot.configFail', { msg: errText(e) }), 'err');
   }
 
   // 새로고침(F5) 전에 접속돼 있었다면 복원한다 — 접속은 서버(브리지)에 살아 있으므로
@@ -200,19 +200,19 @@ async function boot() {
   try {
     if (await api.restoreSession()) {
       renderStatus();
-      logMsg(`접속 복원됨: ${(session.meta && session.meta.connectionName) || ''}`, 'ok');
+      logMsg(t('boot.sessionRestored', { name: (session.meta && session.meta.connectionName) || '' }), 'ok');
       await schemaOnConnected();
       switchView('sqls');   // 접속 후에는 그 접속의 SQL 목록을 먼저
       refreshSqls();
       return;
     }
-  } catch (e) { logMsg(`세션 복원 시도 실패: ${errText(e)}`, 'err'); }
+  } catch (e) { logMsg(t('boot.sessionRestoreFail', { msg: errText(e) }), 'err'); }
 
   // 접속 프로필이 하나도 없으면 접속 창을 열어 첫 사용을 안내한다
   try {
     const r = await api.listConnections();
     if (!r.connections.length) {
-      toast('먼저 DB 접속 정보를 등록하세요.', '', 5000);
+      toast(t('boot.needConnection'), '', 5000);
       openConnect();
     }
   } catch (e) { /* 무시 */ }
@@ -220,5 +220,5 @@ async function boot() {
 
 boot().catch((e) => {
   console.error(e);
-  toast(`초기화 실패: ${e.message}`, 'err', 10000);
+  toast(t('boot.initFail', { msg: e.message }), 'err', 10000);
 });

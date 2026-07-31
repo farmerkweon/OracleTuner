@@ -238,7 +238,7 @@ async function loadTuning(id) {
 }
 
 function statusLabel(s) {
-  return { draft: '작성중', verified: '검증완료', applied: '적용됨', rejected: '보류' }[s] || s;
+  return { draft: t('st.draft'), verified: t('st.verified'), applied: t('st.applied'), rejected: t('st.rejected') }[s] || s;
 }
 
 function clearPreview() {
@@ -386,7 +386,7 @@ export async function renderDock(hostEl) {
       });
       const kids = el('div', { class: 'tree-children' });
       for (const it of rows) {
-        const leaf = el('div', { class: 'tree-leaf', title: `${it.preview}\n(더블클릭: 튜닝 전으로 열기)` }, [
+        const leaf = el('div', { class: 'tree-leaf', title: `${it.preview}\n${t('lib.leafTip')}` }, [
           el('span', { class: 'tree-leaf-icon', html: icon('formula', 12) }),
           el('span', { class: 'tree-leaf-name', text: it.title }),
           it.tuningCount ? el('span', { class: 'tree-leaf-badge', text: `↻${it.tuningCount}` }) : null

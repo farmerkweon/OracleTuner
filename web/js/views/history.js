@@ -13,11 +13,12 @@ import { makeGrid } from '../gridkit.js';
 let editorsRef = null;
 let onLoadToWorkbench = null;
 
-const STATUS_LABEL = { draft: '작성중', verified: '검증완료', applied: '적용됨', rejected: '보류' };
-const VERDICT_LABEL = {
-  IDENTICAL: '완전 동일', SAME_SET: '집합 동일', DIFFERENT: '결과 다름',
-  INCONCLUSIVE: '비교 불가', SKIPPED: '미검증'
-};
+// 라벨은 언어 변경 후에도 갱신돼야 하므로 상수가 아니라 조회 함수로 둔다.
+const statusLabel = (s) => ({ draft: t('st.draft'), verified: t('st.verified'), applied: t('st.applied'), rejected: t('st.rejected') })[s];
+const verdictLabel = (v) => ({
+  IDENTICAL: t('verdict.identical'), SAME_SET: t('verdict.sameset'), DIFFERENT: t('verdict.different'),
+  INCONCLUSIVE: t('verdict.inconclusive'), SKIPPED: t('verdict.skipped')
+})[v];
 
 export function initHistory(opts = {}) {
   editorsRef = opts.editors || null;
@@ -36,7 +37,7 @@ export async function refresh() {
     });
     const items = r.items || [];
     $('#hist-summary').textContent =
-      `${items.length}건` + (r.tags && r.tags.length ? ` · 태그 ${r.tags.map((t) => `${t.tag}(${t.count})`).join(', ')}` : '');
+      t('hist.count', { n: items.length }) + (r.tags && r.tags.length ? t('hist.tagSummary', { tags: r.tags.map((x) => `${x.tag}(${x.count})`).join(', ') }) : '');
     renderGrid(items);
   } catch (e) {
     $('#grid-history').innerHTML = `<div class="pad" style="color:var(--danger)">${esc(errText(e))}</div>`;
@@ -49,23 +50,20 @@ function renderGrid(items) {
     const filtered = $('#hist-q').value.trim() || $('#hist-status').value;
     host.innerHTML = filtered
       ? `<div class="empty-guide"><div class="empty-icon">🔍</div>
-          <div class="empty-title">검색 결과가 없습니다</div>
-          <div class="empty-desc">검색어나 상태 필터를 바꿔보세요.</div></div>`
+          <div class="empty-title">${esc(t('hist.noSearchTitle'))}</div>
+          <div class="empty-desc">${esc(t('hist.noSearchDesc'))}</div></div>`
       : `<div class="empty-guide">
           <div class="empty-icon">📁</div>
-          <div class="empty-title">아직 저장된 튜닝 기록이 없습니다</div>
-          <div class="empty-desc">
-            튜닝 이력은 <b>전/후 SQL·실행계획·검증 결과</b>를 한 건으로 묶어 파일로 남긴 기록입니다.<br>
-            아래 순서로 첫 기록을 만들어 보세요:
-          </div>
+          <div class="empty-title">${esc(t('hist.emptyTitle'))}</div>
+          <div class="empty-desc">${t('hist.emptyDesc')}</div>
           <ol class="empty-steps">
-            <li><b>워크벤치</b> 탭에서 튜닝 전/후 SQL 을 작성합니다.</li>
-            <li><b>비교 검증</b>(Ctrl+Shift+K) 또는 <b>튜닝 후보</b> 토너먼트로 효과를 확인합니다.</li>
-            <li>결과 영역 오른쪽 위 <b>[튜닝 저장]</b> 버튼을 누릅니다.</li>
-            <li>여기 목록에 나타나고, 행을 펼치면 상세·내보내기·다시 불러오기가 됩니다.</li>
+            <li>${t('hist.emptyStep1')}</li>
+            <li>${t('hist.emptyStep2')}</li>
+            <li>${t('hist.emptyStep3')}</li>
+            <li>${t('hist.emptyStep4')}</li>
           </ol>
           <div class="empty-actions">
-            <button class="btn btn-primary btn-sm" id="empty-go-wb">워크벤치로 가기</button>
+            <button class="btn btn-primary btn-sm" id="empty-go-wb">${esc(t('hist.goWorkbench'))}</button>
           </div>
         </div>`;
     const go = $('#empty-go-wb');
@@ -75,9 +73,9 @@ function renderGrid(items) {
 
   const data = items.map((i) => ({
     ...i,
-    statusHtml: `<span class="tag-pill ${i.status === 'applied' ? '' : i.status === 'rejected' ? 'warn' : ''}">${esc(STATUS_LABEL[i.status] || i.status)}</span>`,
+    statusHtml: `<span class="tag-pill ${i.status === 'applied' ? '' : i.status === 'rejected' ? 'warn' : ''}">${esc(statusLabel(i.status) || i.status)}</span>`,
     verdictHtml: i.verdict
-      ? `<span class="sev-pill ${verdictClass(i.verdict)}">${esc(VERDICT_LABEL[i.verdict] || i.verdict)}</span>`
+      ? `<span class="sev-pill ${verdictClass(i.verdict)}">${esc(verdictLabel(i.verdict) || i.verdict)}</span>`
       : '<span class="muted">-</span>',
     improveText: i.improvementPct === null || i.improvementPct === undefined ? '' : fmtPct(i.improvementPct),
     tagText: (i.tags || []).join(', '),
@@ -86,17 +84,17 @@ function renderGrid(items) {
 
   const grid = makeGrid(host, {
     columns: [
-      { field: 'title', header: '제목', width: 260 },
-      { field: 'statusHtml', header: '상태', width: 90, renderer: 'html', align: 'center' },
-      { field: 'verdictHtml', header: '결과검증', width: 100, renderer: 'html', align: 'center' },
-      { field: 'improveText', header: '개선율', width: 90, align: 'right' },
-      { field: 'beforeMedianMs', header: '전(ms)', width: 90, align: 'right', type: 'number' },
-      { field: 'afterMedianMs', header: '후(ms)', width: 90, align: 'right', type: 'number' },
-      { field: 'highCount', header: '높음', width: 60, align: 'right', type: 'number' },
-      { field: 'findingCount', header: '지적', width: 60, align: 'right', type: 'number' },
-      { field: 'connectionName', header: '접속', width: 130 },
-      { field: 'tagText', header: '태그', width: 150 },
-      { field: 'updatedText', header: '수정일시', width: 130 },
+      { field: 'title', header: t('col.title'), width: 260 },
+      { field: 'statusHtml', header: t('col.status'), width: 90, renderer: 'html', align: 'center' },
+      { field: 'verdictHtml', header: t('col.verdictCheck'), width: 100, renderer: 'html', align: 'center' },
+      { field: 'improveText', header: t('hist.improve'), width: 90, align: 'right' },
+      { field: 'beforeMedianMs', header: t('col.beforeMs'), width: 90, align: 'right', type: 'number' },
+      { field: 'afterMedianMs', header: t('col.afterMs'), width: 90, align: 'right', type: 'number' },
+      { field: 'highCount', header: t('sev.high'), width: 60, align: 'right', type: 'number' },
+      { field: 'findingCount', header: t('col.findings'), width: 60, align: 'right', type: 'number' },
+      { field: 'connectionName', header: t('col.connection'), width: 130 },
+      { field: 'tagText', header: t('col.tags'), width: 150 },
+      { field: 'updatedText', header: t('col.updated'), width: 130 },
       { field: 'id', header: 'ID', width: 190 }
     ],
     masterDetail: {
@@ -115,7 +113,7 @@ function verdictClass(v) {
 }
 
 async function renderDetail(row, hostEl) {
-  hostEl.innerHTML = '<div class="pad muted">불러오는 중…</div>';
+  hostEl.innerHTML = `<div class="pad muted">${esc(t('hist.loading'))}</div>`;
   let rec;
   try {
     rec = await api.getTuning(row.id);
@@ -132,30 +130,30 @@ async function renderDetail(row, hostEl) {
   hostEl.innerHTML = `
     <div class="detail-panel">
       <div class="dp-block">
-        <div class="dp-label">요약</div>
+        <div class="dp-label">${esc(t('hist.summary'))}</div>
         <div>
-          상태 <b>${esc(STATUS_LABEL[rec.status] || rec.status)}</b> ·
-          검증 <b>${esc(VERDICT_LABEL[v.verdict] || '-')}</b> ·
-          성능 ${d.beforeMedianMs !== undefined ? `${fmtMs(d.beforeMedianMs)} → ${fmtMs(d.afterMedianMs)} (${fmtPct(d.improvementPct)})` : '-'} ·
-          지적 ${fmtNum((rec.findings || []).length)}건 ·
-          작성 ${esc(fmtDate(rec.createdAt))}
+          ${esc(t('hist.summaryStatus'))} <b>${esc(statusLabel(rec.status) || rec.status)}</b> ·
+          ${esc(t('hist.summaryVerify'))} <b>${esc(verdictLabel(v.verdict) || '-')}</b> ·
+          ${esc(t('hist.summaryPerf'))} ${d.beforeMedianMs !== undefined ? `${fmtMs(d.beforeMedianMs)} → ${fmtMs(d.afterMedianMs)} (${fmtPct(d.improvementPct)})` : '-'} ·
+          ${esc(t('hist.summaryFindings', { n: fmtNum((rec.findings || []).length) }))} ·
+          ${esc(t('hist.summaryCreated', { date: fmtDate(rec.createdAt) }))}
         </div>
       </div>
-      ${rec.note ? `<div class="dp-block"><div class="dp-label">메모</div><div>${esc(rec.note)}</div></div>` : ''}
+      ${rec.note ? `<div class="dp-block"><div class="dp-label">${esc(t('hist.memo'))}</div><div>${esc(rec.note)}</div></div>` : ''}
       <div class="dp-block">
-        <div class="dp-label">튜닝 전</div>
+        <div class="dp-label">${esc(t('plan.before'))}</div>
         <pre class="sqled-highlight" style="position:static;padding:8px 10px;background:#fafbfc;border:1px solid var(--border);border-radius:6px;max-height:180px;overflow:auto;">${hl((rec.before || {}).sql)}</pre>
       </div>
       ${(rec.after || {}).sql ? `<div class="dp-block">
-        <div class="dp-label">튜닝 후</div>
+        <div class="dp-label">${esc(t('plan.after'))}</div>
         <pre class="sqled-highlight" style="position:static;padding:8px 10px;background:#f7fbf8;border:1px solid var(--border);border-radius:6px;max-height:180px;overflow:auto;">${hl(rec.after.sql)}</pre>
       </div>` : ''}
       <div class="dp-block">
-        <button class="btn btn-sm btn-primary" data-load>워크벤치로 불러오기</button>
-        <button class="btn btn-sm" data-export="md">Markdown 보고서</button>
-        <button class="btn btn-sm" data-export="sql">.sql 파일</button>
+        <button class="btn btn-sm btn-primary" data-load>${esc(t('hist.loadToWb'))}</button>
+        <button class="btn btn-sm" data-export="md">${esc(t('hist.exportMd'))}</button>
+        <button class="btn btn-sm" data-export="sql">${esc(t('hist.exportSql'))}</button>
         <button class="btn btn-sm" data-export="json">JSON</button>
-        <button class="btn btn-sm btn-danger btn-ghost" data-del>삭제</button>
+        <button class="btn btn-sm btn-danger btn-ghost" data-del>${esc(t('lib.delete'))}</button>
       </div>
     </div>`;
 
@@ -165,7 +163,7 @@ async function renderDetail(row, hostEl) {
       editorsRef.after.setValue((rec.after || {}).sql || '');
     }
     onLoadToWorkbench(rec);
-    toast(`"${rec.title || rec.id}" 을(를) 워크벤치로 불러왔습니다.`, 'ok');
+    toast(t('hist.loaded', { title: rec.title || rec.id }), 'ok');
     document.querySelector('.rail-tab[data-view="workbench"]').click();
   });
 
@@ -176,10 +174,10 @@ async function renderDetail(row, hostEl) {
   }
 
   hostEl.querySelector('[data-del]').addEventListener('click', async () => {
-    if (!confirm(`"${rec.title || rec.id}" 을(를) 삭제할까요?\n(삭제해도 data/tunings/.trash 에 백업본이 남습니다)`)) return;
+    if (!confirm(t('hist.deleteConfirm', { title: rec.title || rec.id }))) return;
     try {
       await api.removeTuning(rec.id);
-      toast('삭제했습니다.');
+      toast(t('hist.deleted'));
       refresh();
     } catch (e) {
       toast(errText(e), 'err');
@@ -212,7 +210,7 @@ export function openSaveModal(ctx) {
     <div>· ${esc(t('wb.afterTitle'))} ${ctx.after ? `${ctx.after.split('\n').length}` : '(0)'}</div>
     <div>· ${esc(t('tab.diag'))} ${(ctx.findings || []).length}</div>
     <div>· ${esc(t('tab.plan'))} ${ctx.plans && ctx.plans.before ? '✓' : '—'}</div>
-    <div>· ${esc(t('tab.verify'))} ${VERDICT_LABEL[v.verdict] || '—'}</div>
+    <div>· ${esc(t('tab.verify'))} ${esc(verdictLabel(v.verdict) || '—')}</div>
     <div>· ${esc(t('hist.improve'))} ${d.improvementPct !== undefined ? fmtPct(d.improvementPct) : '—'}</div>`;
 
   // 이미 연결된 SQL 이 있으면 연결 체크박스는 숨긴다(이미 그 SQL 의 이력이므로)
@@ -232,10 +230,10 @@ export function initSaveModal(opts = {}) {
 function guessTitle(sql, tk) {
   if (!sql) return '';
   const a = tk ? tk.analyze(sql) : null;
-  const t = a && a.tables && a.tables.length ? a.tables.map((x) => x.name).filter((n) => n !== '(inline view)').slice(0, 2).join(', ') : '';
+  const tables = a && a.tables && a.tables.length ? a.tables.map((x) => x.name).filter((n) => n !== '(inline view)').slice(0, 2).join(', ') : '';
   const type = a ? a.type : 'SQL';
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-  return t ? `${t} ${type} 튜닝 (${stamp})` : `${type} 튜닝 (${stamp})`;
+  return tables ? t('hist.titleGuess', { tables, type, stamp }) : t('hist.titleGuessNoTable', { type, stamp });
 }
 
 async function doSave() {
@@ -275,14 +273,14 @@ async function doSave() {
         rec.sqlRef = { name: s.name, title: s.name };
         linkedNew = true;
         document.dispatchEvent(new CustomEvent('ot:snippets-changed'));
-      } catch (e) { logMsg(`SQL 자동 저장 실패(튜닝만 저장): ${errText(e)}`, 'err'); }
+      } catch (e) { logMsg(t('hist.snippetSaveFail', { msg: errText(e) }), 'err'); }
     }
     const r = await api.saveTuning(rec);
     saveContext.id = r.tuning.id;
     saveContext.sqlRef = rec.sqlRef;
     $('#modal-save').hidden = true;
     toast(linkedNew ? t('sv.linkedNew') : `${t('res.saveTuning')} ✓`, 'ok');
-    logMsg(`튜닝 저장 ${r.tuning.id} (${r.tuning.title})${rec.sqlRef ? ' → ' + rec.sqlRef.name : ''}`, 'ok');
+    logMsg(t('hist.savedLog', { id: r.tuning.id, title: r.tuning.title, link: rec.sqlRef ? ' → ' + rec.sqlRef.name : '' }), 'ok');
     refresh();
   } catch (e) {
     toast(errText(e), 'err');

@@ -108,7 +108,7 @@ export function renderResult(host, result) {
   const rows = (result && result.rows) || [];
 
   if (!cols.length) {
-    host.innerHTML = '<div class="pad muted">표시할 결과 집합이 없습니다.</div>';
+    host.innerHTML = `<div class="pad muted">${esc(t('grid.noResultSet'))}</div>`;
     return null;
   }
 
@@ -152,7 +152,7 @@ function guessWidth(col) {
 export function renderPlan(host, plan) {
   const rows = (plan && plan.rows) || [];
   if (!rows.length) {
-    host.innerHTML = `<div class="pad muted">${esc((plan && (plan.error || plan.note)) || '실행계획이 없습니다.')}</div>`;
+    host.innerHTML = `<div class="pad muted">${esc((plan && (plan.error || plan.note)) || t('grid.noPlan'))}</div>`;
     return null;
   }
 
@@ -164,7 +164,7 @@ export function renderPlan(host, plan) {
     { field: 'bytes', header: 'Bytes', width: 90, align: 'right' },
     { field: 'cost', header: 'Cost', width: 80, align: 'right' },
     { field: 'time', header: 'Time', width: 80, align: 'right' },
-    { field: 'tagText', header: '신호', width: 150 },
+    { field: 'tagText', header: t('col.signal'), width: 150 },
     { field: 'optimizer', header: 'Optimizer', width: 110, hidden: true },
     { field: 'partition_start', header: 'Pstart', width: 80, hidden: true },
     { field: 'partition_stop', header: 'Pstop', width: 80, hidden: true }
@@ -212,18 +212,17 @@ function planDetailHtml(r) {
   return `<div class="detail-panel">
     <h4>${esc(r.opFull || '')} ${r.objFull ? '— ' + esc(r.objFull) : ''}</h4>
     ${tags ? `<div class="dp-block">${tags}</div>` : ''}
-    ${block('접근 술어 (ACCESS)', r.access_predicates, true)}
-    ${block('필터 술어 (FILTER)', r.filter_predicates, true)}
-    ${block('프로젝션', r.projection, true)}
+    ${block(t('pd.access'), r.access_predicates, true)}
+    ${block(t('pd.filter'), r.filter_predicates, true)}
+    ${block(t('pd.projection'), r.projection, true)}
     <div class="dp-block">
-      <div class="dp-label">추정치</div>
-      <div>행 ${fmtBig(r.cardinality)} · 바이트 ${fmtBig(r.bytes)} · 비용 ${fmtBig(r.cost)}
-        · CPU ${fmtBig(r.cpu_cost)} · IO ${fmtBig(r.io_cost)} · 임시공간 ${fmtBig(r.temp_space)}</div>
+      <div class="dp-label">${esc(t('pd.estimates'))}</div>
+      <div>${esc(t('pd.estimatesValue', { rows: fmtBig(r.cardinality), bytes: fmtBig(r.bytes), cost: fmtBig(r.cost), cpu: fmtBig(r.cpu_cost), io: fmtBig(r.io_cost), temp: fmtBig(r.temp_space) }))}</div>
     </div>
-    ${block('질의 블록', r.qblock_name)}
-    ${block('객체 별칭', r.object_alias)}
-    ${block('파티션', r.partition_start ? `${r.partition_start} ~ ${r.partition_stop}` : '')}
-    ${block('분산 방식', r.distribution)}
+    ${block(t('pd.qblock'), r.qblock_name)}
+    ${block(t('pd.alias'), r.object_alias)}
+    ${block(t('pd.partition'), r.partition_start ? `${r.partition_start} ~ ${r.partition_stop}` : '')}
+    ${block(t('pd.distribution'), r.distribution)}
   </div>`;
 }
 
@@ -240,7 +239,7 @@ const sevLabel = (s) => t('sev.' + s);
 /** 지적사항 목록. 행을 펼치면 근거와 조치 방법 전문이 나온다. */
 export function renderFindings(host, findings, onFix) {
   if (!findings || !findings.length) {
-    host.innerHTML = '<div class="pad muted">지적사항이 없습니다. 정적 규칙 기준으로는 문제가 발견되지 않았습니다.</div>';
+    host.innerHTML = `<div class="pad muted">${esc(t('grid.noFindings'))}</div>`;
     return null;
   }
   const columns = [
@@ -285,16 +284,16 @@ function findingDetailHtml(f) {
   return `<div class="detail-panel">
     <h4><span class="sev-pill sev-${esc(f.severity)}">${sevLabel(f.severity)}</span> ${esc(f.title)}</h4>
     <div class="dp-block">
-      <div class="dp-label">왜 문제인가</div>
+      <div class="dp-label">${esc(t('fd.why'))}</div>
       <div>${safeHtml(f.detail)}</div>
     </div>
     <div class="dp-block">
-      <div class="dp-label">어떻게 고치나</div>
+      <div class="dp-label">${esc(t('fd.how'))}</div>
       <div>${safeHtml(f.suggestion)}</div>
     </div>
-    ${f.snippet ? `<div class="dp-block"><div class="dp-label">해당 위치${f.line ? ` (${f.line}번째 줄)` : ''}</div><pre>${esc(f.snippet)}</pre></div>` : ''}
-    ${f.autoFixable ? '<div class="dp-block"><button class="btn btn-sm btn-primary" data-fix>자동 수정 적용</button></div>' : ''}
-    <div class="dp-block"><div class="dp-label">규칙 ID</div><code>${esc(f.id)}</code></div>
+    ${f.snippet ? `<div class="dp-block"><div class="dp-label">${esc(t('fd.location'))}${f.line ? esc(t('fd.atLine', { n: f.line })) : ''}</div><pre>${esc(f.snippet)}</pre></div>` : ''}
+    ${f.autoFixable ? `<div class="dp-block"><button class="btn btn-sm btn-primary" data-fix>${esc(t('fd.autoFix'))}</button></div>` : ''}
+    <div class="dp-block"><div class="dp-label">${esc(t('col.ruleId'))}</div><code>${esc(f.id)}</code></div>
   </div>`;
 }
 
@@ -318,7 +317,7 @@ function findingDetailHtml(f) {
 export function renderCompareChart(host, spec) {
   const rows = (spec.rows || []).filter((r) => r && (isFiniteNum(r.before) || isFiniteNum(r.after)));
   if (!rows.length) {
-    host.innerHTML = `<div class="pad muted">${esc(spec.emptyText || '차트로 표시할 수치가 없습니다.')}</div>`;
+    host.innerHTML = `<div class="pad muted">${esc(spec.emptyText || t('grid.noChartData'))}</div>`;
     return null;
   }
   const beforeName = spec.beforeName || 'before';
@@ -340,7 +339,7 @@ export function renderCompareChart(host, spec) {
 
   const grid = makeGrid(dataHost, {
     columns: [
-      { field: 'label', header: '지표' },
+      { field: 'label', header: t('col.metric') },
       { field: 'before', header: beforeName, type: 'number' },
       { field: 'after', header: afterName, type: 'number' }
     ],
@@ -378,7 +377,7 @@ export function renderCompareChart(host, spec) {
     });
     return chart;
   } catch (e) {
-    chartMount.innerHTML = `<div class="pad muted">차트를 그릴 수 없습니다: ${esc(e.message)}</div>`;
+    chartMount.innerHTML = `<div class="pad muted">${esc(t('grid.chartFail', { msg: e.message }))}</div>`;
     return null;
   }
 }
@@ -392,7 +391,7 @@ function isFiniteNum(v) {
 /** 객체 배열을 그대로 표로 그린다(메타데이터 조회 결과 등). */
 export function renderTable(host, rows, columnDefs, gridOpts) {
   if (!rows || !rows.length) {
-    host.innerHTML = '<div class="pad muted">조회된 자료가 없습니다.</div>';
+    host.innerHTML = `<div class="pad muted">${esc(t('grid.noData'))}</div>`;
     return null;
   }
   const columns = columnDefs || Object.keys(rows[0]).map((k) => ({
@@ -496,8 +495,8 @@ export function wireDetailExpand(hostEl, title, renderContent) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn btn-icon btn-ghost detail-expand-btn';
-  btn.title = '크게 보기';
-  btn.setAttribute('aria-label', '크게 보기');
+  btn.title = t('common.expand');
+  btn.setAttribute('aria-label', t('common.expand'));
   let svg = icon('arrows-fullscreen', 14);
   // renderIcon() 은 미등록 role 이어도 빈 <svg></svg> 셸을 돌려줄 수 있어(빈 문자열이 아님) 단순
   // truthy 체크로는 못 거른다 — 실제로 그릴 요소(path/use 등)가 있는지까지 확인해야 폴백이 동작한다.

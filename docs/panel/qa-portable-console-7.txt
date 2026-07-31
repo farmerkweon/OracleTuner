@@ -1,0 +1,29 @@
+=== NOTES ===
+MODAL-AFTER-CONNECT-BTN=true
+SAVED-PROFILES=1
+PW-AUTOFILLED=""
+HEADER=OT | Oracle Tuner | SQL 튜닝 워크벤치 | 접속 해제 | QA Portable (ORAHELPER) | 계획: 표준 | 계측: 시간만 | 딕셔너리: ALL | 제한 7건 | 언어 | 한국어 | English | 日本語 | 中文 | 테마 | default | modern | slate | ocean | forest | indigo | exe
+SQL-ROWS=0
+WB-실행계획: 클릭됨
+WB-진단: 클릭됨
+WB-실행: 클릭됨
+WB-TEXT=SQL 목록 | « | ▾ | 데모 | 10 | ⑤ NVL 로 감싼 조건 | ⑥ UNION (불필요한 중복 제거) | ⑦ ROWNUM + ORDER BY (결과가 틀림) | ⑧ 조인 — 순서_방식 경합 | 데모 9) 정리 (DROP) | ① 날짜 함수 조건 (인덱스 못 탐) | ② 암시적 형변환 (문자 컬럼 = 숫자) | ③ NOT IN 서브쿼리 | ④ SELECT _ (불필요한 컬럼) | 데모 1) 데이터 한번에 만들기 | 튜닝 전 SQL | 📄 | ① 날짜 함수 조건 (인덱스 못 탐) | 1개 문장 · 현재: SELECT · 6줄 | 실행 | 실행계획 | 진단 | 전체 실행 | 정렬 | *펼치기 | SQL함 | 복사 | 1 | 2 | 3 | 4 | 5 | 6 |  | -- [문제] order_dt 컬럼을 TO_CHAR 로 감싸서 IX_ORD_DT 인덱스를 쓰지 못한다. | -- 30만 건 중 특정 1개월(약 8천 건)만 필요한데 전체를 읽는다. | SELECT order_id, cust_no, order_dt, amount |   FROM ot_orders |  WHERE TO_CHAR(order_dt, 'YYYYMM') = '202403' |  ORDER BY order_dt |   | 튜닝 후 SQL | (비어 있음 — 튜닝안을 여기에 작성하세요) | 실행 | 실행계획 | 진단 | 정렬 | SQL함 | 복사 | 힌트 | 비교
+CAND-TEXT=SQL 목록 | « | ▾ | 데모 | 10 | ⑤ NVL 로 감싼 조건 | ⑥ UNION (불필요한 중복 제거) | ⑦ ROWNUM + ORDER BY (결과가 틀림) | ⑧ 조인 — 순서_방식 경합 | 데모 9) 정리 (DROP) | ① 날짜 함수 조건 (인덱스 못 탐) | ② 암시적 형변환 (문자 컬럼 = 숫자) | ③ NOT IN 서브쿼리 | ④ SELECT _ (불필요한 컬럼) | 데모 1) 데이터 한번에 만들기 | 튜닝 전 SQL | 📄 | ① 날짜 함수 조건 (인덱스 못 탐) | 1개 문장 · 현재: SELECT · 6줄 | 실행 | 실행계획 | 진단 | 전체 실행 | 정렬 | *펼치기 | SQL함 | 복사 | 1 | 2 | 3 | 4 | 5 | 6 |  | -- [문제] order_dt 컬럼을 TO_CHAR 로 감싸서 IX_ORD_DT 인덱스를 쓰지 못한다. | -- 30만 건 중 특정 1개월(약 8천 건)만 필요한데 전체를 읽는다. | SELECT order_id, cust_no, order_dt, amount |   FROM ot_orders |  WHERE TO_CHAR(order_dt, 'YYYYMM') = '202403' |  ORD
+SCHEMA-TEXT=스키마 | ORAHELPER (12) | SYS (40) | SYSTEM (4) | XDB (6) | 조회 | 객체명▿ | 	유형▿ | 	상태▿ | 	최종 DDL▿ | CATEGORIES | TABLE | VALID | 2026-06-06 17:01:30 | CUSTOMERS | TABLE | VALID | 2026-06-07 15:27:28 | DEPARTMENTS | TABLE | VALID | 2026-06-06 17:01:30 | EMPLOYEES | TABLE | VALID | 2026-06-06 18:03:21 | EMP_SALARY_AUDIT | TABLE | VALID | 2026-06-06 18:01:31 | LOGS | TABLE | VALID | 2026-06-07 15:27:29 | M
+HIST-TEXT=상태 | 전체 | 작성중 | 검증완료 | 적용됨 | 보류 | 새로고침 | 0건 | 📁 | 아직 저장된 튜닝 기록이 없습니다 | 튜닝 이력은 전/후 SQL·실행계획·검증 결과를 한 건으로 묶어 파일로 남긴 기록입니다. | 아래 순서로 첫 기록을 만들어 보세요: | 워크벤치 탭에서 튜닝 전/후 SQL 을 작성합니다. | 비교 검증(Ctrl+Shift+K) 또는 튜닝 후보 토너먼트로 효과를 확인합니다. | 결과 영역 오른쪽 위 [튜닝 저장] 버튼을 누릅니다. | 여기 목록에 나타나고, 행을 펼치면 상세·내보내기·다시 불러오기가 됩니다.
+SET-TEXT=환경 진단 |  | 이 도구가 동작하는 데 필요한 것들의 실제 상태입니다. 빠진 것은 빠진 대로 표시합니다. |  | ✔ | Java 런타임 | openjdk version "17.0.19" 2026-04-21 (JAVA_HOME) | C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin\java.exe | ✔ | Java 컴파일러(javac) | C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin\javac.exe | ✔ | Oracle JDBC 드라이버 | E:\IBANK\SeTools\OracleTuner\dist\_qa-portable\java\lib\ojdbc11.jar | ✔ | JDBC 브리지 빌드 | E:\IBANK\SeTools\OracleTuner\dist\_qa-portable\java\out | i | 실행 환경 | Node v24.15.0 · win
+=== ERRS ===
+[warning] [OpenGrid] masterDetail.heightMode:'auto' 는 Spike-B(가변높이 VirtualScroll) 통과 전까지 미공개 기능입니다. 'fixed' 로 동작합니다(11_design_F2_v2.md §2.2/C12.2).
+[warning] [LocaleRegistry] 미등록 로케일 "ja" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "ja" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "ja" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "ja" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "ja" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "ja" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "zh" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "zh" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "zh" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "zh" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "zh" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+[warning] [LocaleRegistry] 미등록 로케일 "zh" — 무시하고 현재 로케일 유지. / unknown locale, keeping current.
+=== NETS ===

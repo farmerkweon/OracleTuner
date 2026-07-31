@@ -29,13 +29,13 @@ export function initWorkbench() {
   // 예제 SQL 을 미리 채우지 않는다 — [신규] 를 누를 때 저장 여부를 계속 묻는 원인이 되고,
   // 랜딩이 SQL 목록이라 예제가 필요 없다. 빈 상태(배지 "신규")로 시작한다.
   state.editors.before = new SqlEditor($('#editor-before'), {
-    name: '튜닝 전 SQL',
+    name: t('wb.beforeTitle'),
     value: '',
     onChange: () => updateMeta('before'),
     onAction: (act) => handleAction(act, 'before')
   });
   state.editors.after = new SqlEditor($('#editor-after'), {
-    name: '튜닝 후 SQL',
+    name: t('wb.afterTitle'),
     value: '',
     onChange: () => updateMeta('after'),
     onAction: (act) => handleAction(act, act === 'compare' ? 'after' : 'after')
@@ -205,20 +205,20 @@ function updateMeta(side) {
   const sql = ed.value;
   const node = $(`#meta-${side}`);
   if (!sql.trim()) {
-    node.textContent = side === 'after' ? '(비어 있음 — 튜닝안을 여기에 작성하세요)' : '';
+    node.textContent = side === 'after' ? t('wb.emptyAfter') : '';
     return;
   }
   const stmts = tk.splitStatements(sql);
   const cur = ed.currentStatement();
   const binds = tk.extractBinds(sql);
   const parts = [
-    `${stmts.length}개 문장`,
-    `현재: ${cur.type || '-'}`,
-    `${sql.split('\n').length}줄`
+    t('wb.metaStmts', { n: stmts.length }),
+    t('wb.metaCurrent', { type: cur.type || '-' }),
+    t('wb.metaLines', { n: sql.split('\n').length })
   ];
-  if (binds.length) parts.push(`바인드 ${binds.length}개`);
+  if (binds.length) parts.push(t('wb.metaBinds', { n: binds.length }));
   const subs = tk.extractSubstitutions(sql);
-  if (subs.length) parts.push(`치환변수 ${subs.join(',')}`);
+  if (subs.length) parts.push(t('wb.metaSubs', { vars: subs.join(',') }));
   node.textContent = parts.join(' · ');
 }
 
@@ -247,7 +247,7 @@ async function handleAction(act, side, btn) {
       case 'runScript': return await runScript(side, btn);
       case 'copyToAfter': {
         state.editors.after.setValue(ed.value);
-        toast('튜닝 후 편집기로 복사했습니다.');
+        toast(t('wb.copiedToAfter'));
         return;
       }
       case 'compare': return await compare(btn);
@@ -255,14 +255,14 @@ async function handleAction(act, side, btn) {
     }
   } catch (e) {
     toast(errText(e), 'err');
-    logMsg(`${act} 실패: ${errText(e)}`, 'err');
+    logMsg(t('wb.actionFail', { act, msg: errText(e) }), 'err');
   }
 }
 
 function requireSession() {
   if (!session.connected) {
-    toast('먼저 DB 에 접속하세요. (Ctrl+Shift+C)', 'warn');
-    throw new Error('DB 에 접속되어 있지 않습니다.');
+    toast(t('common.needConnect'), 'warn');
+    throw new Error(t('wb.notConnected'));
   }
 }
 
@@ -272,7 +272,7 @@ async function runSql(side, btn) {
   requireSession();
   const ed = state.editors[side];
   const st = ed.currentStatement();
-  if (!st.sql.trim()) return toast('실행할 문장이 없습니다.', 'warn');
+  if (!st.sql.trim()) return toast(t('wb.noStmtRun'), 'warn');
   ed.markStatement();
 
   // 이전 SQL 의 계획·진단·후보가 새 결과 옆에 남지 않게 먼저 비운다.
@@ -282,7 +282,7 @@ async function runSql(side, btn) {
   setRunning(true);
   const t0 = performance.now();
   try {
-    logMsg(`[${side === 'before' ? '전' : '후'}] 실행: ${oneLine(st.sql)}`);
+    logMsg(t('wb.runLog', { side: t(side === 'before' ? 'wb.sideBefore' : 'wb.sideAfter'), sql: oneLine(st.sql) }));
     const r = await api.execute({ sql: st.sql });
     state.lastResult[side] = r;
 
@@ -292,25 +292,25 @@ async function runSql(side, btn) {
     renderStats(r);
 
     const wall = performance.now() - t0;
-    const t = r.timings || {};
+    const tm = r.timings || {};
     if (r.kind === 'update') {
       $('#result-summary').innerHTML =
-        `<b>${fmtNum(r.affectedRows)}행</b> 영향 · ${fmtMs(t.totalMs)}` +
-        (r.rolledBack ? ' · <span style="color:var(--warn)">안전모드로 자동 롤백됨</span>' : ' · <b style="color:var(--danger)">커밋되지 않음(수동 커밋 필요)</b>');
-      logMsg(`영향 행수 ${r.affectedRows}${r.rolledBack ? ' (자동 롤백)' : ''}`, 'ok');
+        t('wb.affected', { n: fmtNum(r.affectedRows), ms: fmtMs(tm.totalMs) }) +
+        (r.rolledBack ? t('wb.rolledBack') : t('wb.notCommitted'));
+      logMsg(t('wb.affectedLog', { n: r.affectedRows, note: r.rolledBack ? t('wb.autoRollbackShort') : '' }), 'ok');
     } else {
       // 소비(실제로 읽은 행수)와 표시(응답에 보관된 행수)를 분리해 보여준다 — 성능평가 목적상
       // 실제 소비 행수가 진실이고, 표시 행수는 keepRowsMax 로 묶인 UI 용 상한이다.
       const consumed = r.consumedRows != null ? r.consumedRows : r.rowCount;
       const kept = r.keptRowCount != null ? r.keptRowCount : r.rowCount;
-      const keepNote = r.keepTruncated ? ' <span style="color:var(--warn)">(표시 상한 초과 — 일부만 보관)</span>' : '';
+      const keepNote = r.keepTruncated ? t('wb.keepTruncated') : '';
       $('#result-summary').innerHTML =
-        `<b>소비 ${fmtNum(consumed)}행</b> · 표시 ${fmtNum(kept)}행${keepNote}` +
-        `${r.truncated ? ' <span style="color:var(--warn)">(최대 인출 수에서 잘림)</span>' : ''}` +
-        ` · 실행 ${fmtMs(t.executeMs)} + 인출 ${fmtMs(t.fetchMs)} = <b>${fmtMs(t.totalMs)}</b>` +
-        ` · 왕복 ${fmtMs(wall)}` +
-        (r.statsAvailable ? ' · 세션통계 수집됨' : ' · <span class="muted">세션통계 없음(권한)</span>');
-      logMsg(`소비 ${consumed}행 · 표시 ${kept}행 / ${fmtMs(t.totalMs)}`, 'ok');
+        t('wb.consumedKept', { consumed: fmtNum(consumed), kept: fmtNum(kept), note: keepNote }) +
+        (r.truncated ? t('wb.fetchTruncated') : '') +
+        t('wb.timingBreak', { exec: fmtMs(tm.executeMs), fetch: fmtMs(tm.fetchMs), total: fmtMs(tm.totalMs) }) +
+        t('wb.roundTrip', { ms: fmtMs(wall) }) +
+        (r.statsAvailable ? t('wb.statsCollected') : t('wb.statsMissing'));
+      logMsg(t('wb.resultLog', { consumed, kept, ms: fmtMs(tm.totalMs) }), 'ok');
     }
 
     // 설정에 따라 계획도 같이
@@ -319,7 +319,7 @@ async function runSql(side, btn) {
     }
   } catch (e) {
     $('#result-summary').innerHTML = `<span style="color:var(--danger)">${esc(errText(e))}</span>`;
-    logMsg(`실행 실패: ${errText(e)}`, 'err');
+    logMsg(t('wb.runFail', { msg: errText(e) }), 'err');
     toast(errText(e), 'err', 6000);
   } finally {
     setRunning(false);
@@ -346,7 +346,7 @@ async function runScript(side, btn) {
 
   setRunning(true);
   showTab('log');
-  logMsg(`스크립트 실행 시작 — ${n}문장`);
+  logMsg(t('wb.scriptStart', { n }));
   await withBusy(btn, async () => {
     try {
       const r = await api.runScript({ sql, continueOnError: true, commit: true });
@@ -354,8 +354,8 @@ async function runScript(side, btn) {
         const head = `  [${item.no}/${r.total}] ${item.type}`;
         if (item.ok) {
           const detail = item.kind === 'update'
-            ? `${fmtNum(item.affectedRows)}행 반영`
-            : `${fmtNum(item.rowCount || 0)}행`;
+            ? t('wb.scriptApplied', { n: fmtNum(item.affectedRows) })
+            : t('wb.scriptRows', { n: fmtNum(item.rowCount || 0) });
           logMsg(`${head} ✓ ${detail} (${item.elapsedMs}ms) — ${item.preview}`, 'ok');
         } else {
           logMsg(`${head} ✗ ${item.ora || ''} ${item.error} — ${item.preview}`, 'err');
@@ -365,7 +365,7 @@ async function runScript(side, btn) {
       logMsg(msg, r.failed ? 'err' : 'ok');
       toast(msg, r.failed ? 'warn' : 'ok', 6000);
     } catch (e) {
-      logMsg(`스크립트 실패: ${errText(e)}`, 'err');
+      logMsg(t('wb.scriptFail', { msg: errText(e) }), 'err');
       toast(errText(e), 'err', 8000);
     } finally {
       setRunning(false);
@@ -376,13 +376,13 @@ async function runScript(side, btn) {
 function setRunning(on) {
   state.running = on;
   $('#btn-cancel-sql').disabled = !on;
-  $('#rail-msg').textContent = on ? '실행 중…' : '';
+  $('#rail-msg').textContent = on ? t('wb.running') : '';
 }
 
 async function cancelRunning() {
   try {
     const r = await api.cancel();
-    toast(r.cancelled ? '실행을 취소했습니다.' : `취소하지 못했습니다: ${r.reason || ''}`, r.cancelled ? '' : 'warn');
+    toast(r.cancelled ? t('wb.cancelled') : t('wb.cancelFail', { reason: r.reason || '' }), r.cancelled ? '' : 'warn');
   } catch (e) {
     toast(errText(e), 'err');
   }
@@ -399,7 +399,7 @@ async function explainSql(side, btn) {
   requireSession();
   const ed = state.editors[side];
   const st = ed.currentStatement();
-  if (!st.sql.trim()) return toast('계획을 볼 문장이 없습니다.', 'warn');
+  if (!st.sql.trim()) return toast(t('wb.noStmtPlan'), 'warn');
 
   await withBusy(btn, async () => {
     const plan = await api.explain(st.sql);
@@ -408,9 +408,9 @@ async function explainSql(side, btn) {
     showTab('plan');
     showPlan(side);
     if (!plan.available) {
-      logMsg(`실행계획 조회 불가: ${plan.error || plan.note || ''}`, 'err');
+      logMsg(t('wb.planUnavailable', { msg: plan.error || plan.note || '' }), 'err');
     } else {
-      logMsg(`실행계획(${plan.source}) ${plan.rows.length}단계, 총비용 ${fmtBig((plan.summary || {}).totalCost)}`);
+      logMsg(t('wb.planLog', { source: plan.source, steps: plan.rows.length, cost: fmtBig((plan.summary || {}).totalCost) }));
     }
   }, '…');
 }
@@ -419,32 +419,32 @@ function showPlan(side) {
   const plan = state.lastPlan[side];
   const text = $('#plan-text');
   if (!plan) {
-    $('#grid-plan').innerHTML = '<div class="pad muted">아직 조회하지 않았습니다.</div>';
+    $('#grid-plan').innerHTML = `<div class="pad muted">${esc(t('wb.planNotQueried'))}</div>`;
     text.textContent = '';
-    $('#plan-summary').textContent = '실행계획을 조회하면 여기에 표시됩니다.';
+    $('#plan-summary').textContent = t('plan.empty');
     return;
   }
   renderPlan($('#grid-plan'), plan);
-  text.textContent = plan.text || plan.error || '(계획 텍스트 없음)';
+  text.textContent = plan.text || plan.error || t('wb.planNoText');
 
   const s = plan.summary || {};
   const bits = [];
   if (plan.available) {
-    bits.push(`출처: ${planSourceLabel(plan.source)}`);
-    bits.push(`총 비용 ${fmtBig(s.totalCost)}`);
-    bits.push(`예상 행수 ${fmtBig(s.estimatedRows)}`);
-    bits.push(`${s.steps}단계`);
-    if (s.fullScans) bits.push(`전체스캔 ${s.fullScans}`);
-    if (s.cartesian) bits.push(`카티션 ${s.cartesian}`);
-    if (s.sorts) bits.push(`정렬 ${s.sorts}`);
+    bits.push(t('wb.planSource', { source: planSourceLabel(plan.source) }));
+    bits.push(t('wb.planTotalCost', { v: fmtBig(s.totalCost) }));
+    bits.push(t('wb.planEstRows', { v: fmtBig(s.estimatedRows) }));
+    bits.push(t('wb.planSteps', { n: s.steps }));
+    if (s.fullScans) bits.push(t('wb.planFullScans', { n: s.fullScans }));
+    if (s.cartesian) bits.push(t('wb.planCartesian', { n: s.cartesian }));
+    if (s.sorts) bits.push(t('wb.planSorts', { n: s.sorts }));
   } else {
-    bits.push(`조회 불가 — ${plan.error || plan.note || ''}`);
+    bits.push(t('wb.planFailed', { msg: plan.error || plan.note || '' }));
   }
   $('#plan-summary').innerHTML = esc(bits.join(' · ')) + (plan.note ? ` <span class="muted">(${esc(plan.note)})</span>` : '');
 }
 
 function planSourceLabel(src) {
-  return { DBMS_XPLAN: 'DBMS_XPLAN 표준서식', PLAN_TABLE: '계획테이블 직접조회', DISPLAY_CURSOR: '실제 실행 계획', NONE: '없음' }[src] || src;
+  return { DBMS_XPLAN: t('wb.srcXplan'), PLAN_TABLE: t('wb.srcPlanTable'), DISPLAY_CURSOR: t('wb.srcDisplayCursor'), NONE: t('wb.srcNone') }[src] || src;
 }
 
 async function loadActualPlan() {
@@ -453,12 +453,12 @@ async function loadActualPlan() {
   await withBusy(btn, async () => {
     const r = await api.displayCursor('ALLSTATS LAST +COST +BYTES');
     if (!r.available) {
-      toast(`실제 계획을 볼 수 없습니다: ${r.error || 'V$ 권한 부족'}`, 'warn', 5000);
-      logMsg(`DISPLAY_CURSOR 불가: ${r.error || ''}`, 'err');
+      toast(t('wb.actualPlanFail', { msg: r.error || t('wb.noVPriv') }), 'warn', 5000);
+      logMsg(t('wb.displayCursorFail', { msg: r.error || '' }), 'err');
       return;
     }
     $('#plan-text').textContent = r.text;
-    $('#plan-summary').innerHTML = `출처: <b>실제 실행 계획(DISPLAY_CURSOR)</b> · SQL_ID ${esc(r.sqlId || '')}`;
+    $('#plan-summary').innerHTML = t('wb.actualPlanSource', { id: esc(r.sqlId || '') });
     if (r.rowsourceStats && r.rowsourceStats.length) {
       renderTable($('#grid-plan'), r.rowsourceStats, [
         { field: 'id', header: 'Id', width: 50, align: 'right' },
@@ -470,10 +470,10 @@ async function loadActualPlan() {
         { field: 'starts', header: 'Starts', width: 70, align: 'right' },
         { field: 'cr_gets', header: 'Buffers', width: 90, align: 'right' },
         { field: 'disk_reads', header: 'Reads', width: 80, align: 'right' },
-        { field: 'elapsed_us', header: '경과(us)', width: 100, align: 'right' }
+        { field: 'elapsed_us', header: t('col.elapsedUs'), width: 100, align: 'right' }
       ], { rowNumber: false });
     }
-    logMsg(`실제 실행 계획 조회 완료 (SQL_ID ${r.sqlId})`, 'ok');
+    logMsg(t('wb.actualPlanDone', { id: r.sqlId }), 'ok');
   }, '…');
 }
 
@@ -482,7 +482,7 @@ async function loadActualPlan() {
 async function analyzeSql(side, btn) {
   const ed = state.editors[side];
   const st = ed.currentStatement();
-  if (!st.sql.trim()) return toast('진단할 문장이 없습니다.', 'warn');
+  if (!st.sql.trim()) return toast(t('wb.noStmtAnalyze'), 'warn');
 
   await withBusy(btn, async () => {
     const r = await api.analyze({ sql: st.sql, useDb: session.connected });
@@ -497,25 +497,25 @@ async function analyzeSql(side, btn) {
     badge.className = `badge show ${s.high ? '' : s.medium ? 'sev-medium' : 'sev-none'}`;
 
     const src = r.meta && r.meta.usedDb
-      ? `DB 연동 분석 (계획 ${r.plan && r.plan.available ? '있음' : '없음'}, 컬럼타입 ${r.meta.columnTypeCount}개, 통계 ${r.meta.tableCount}개 테이블)`
-      : '정적 분석만 (DB 미접속)';
+      ? t('wb.diagSrcDb', { plan: r.plan && r.plan.available ? t('wb.present') : t('wb.absent'), cols: r.meta.columnTypeCount, tables: r.meta.tableCount })
+      : t('wb.diagSrcStatic');
     $('#diag-summary').innerHTML =
-      `점수 <b>${r.score}</b>/100 · 지적 ${s.total}건 (높음 ${s.high} / 보통 ${s.medium} / 낮음 ${s.low} / 참고 ${s.info}) · <span class="muted">${esc(src)}</span>` +
+      t('wb.diagSummary', { score: r.score, total: s.total, high: s.high, medium: s.medium, low: s.low, info: s.info, src: esc(src) }) +
       (r.meta && r.meta.errors && r.meta.errors.length
-        ? ` <span class="muted" title="${esc(r.meta.errors.map((x) => x.step + ': ' + x.message).join('\n'))}">· 일부 조회 실패 ${r.meta.errors.length}건</span>` : '');
+        ? t('wb.diagPartialFail', { detail: esc(r.meta.errors.map((x) => x.step + ': ' + x.message).join('\n')), n: r.meta.errors.length }) : '');
 
     if (r.plan) {
       state.lastPlan[side] = r.plan;
       $('#plan-side').value = side;
       showPlan(side);
     }
-    logMsg(`진단(${side === 'before' ? '전' : '후'}): ${s.total}건, 점수 ${r.score}`);
+    logMsg(t('wb.diagLog', { side: t(side === 'before' ? 'wb.sideBefore' : 'wb.sideAfter'), total: s.total, score: r.score }));
   }, '…');
 }
 
 async function applyFix(side, finding) {
   if (finding.fixAction === 'expandStar') return expandStar(side);
-  toast('이 지적에는 자동 수정이 없습니다.', 'warn');
+  toast(t('wb.noAutoFix'), 'warn');
 }
 
 // ── 편집 보조 ──────────────────────────────────────────────────────────────
@@ -527,26 +527,26 @@ async function formatSql(side) {
   const r = await api.format(target.sql);
   const v = ed.value;
   ed.setValue(v.slice(0, target.start) + r.sql + v.slice(target.end));
-  toast('SQL 을 정렬했습니다.');
+  toast(t('wb.formatted'));
 }
 
 async function expandStar(side, btn) {
   const ed = state.editors[side];
   const st = ed.currentStatement();
-  if (!st.sql.trim()) return toast('대상 문장이 없습니다.', 'warn');
+  if (!st.sql.trim()) return toast(t('wb.noStmtTarget'), 'warn');
 
   await withBusy(btn, async () => {
     if (!session.connected) {
-      toast('컬럼 목록을 얻으려면 DB 접속이 필요합니다.', 'warn');
+      toast(t('wb.needDbForColumns'), 'warn');
       return;
     }
     const r = await api.expandStar({ sql: st.sql });
     if (!r.ok) {
-      toast(r.error || '펼치지 못했습니다.', 'warn');
+      toast(r.error || t('wb.expandFail'), 'warn');
       return;
     }
     ed.replaceCurrentStatement(r.sql);
-    toast(`컬럼 ${r.expanded}개로 펼쳤습니다.`, 'ok');
+    toast(t('wb.expandDone', { n: r.expanded }), 'ok');
   }, '…');
 }
 
@@ -555,43 +555,44 @@ async function expandStar(side, btn) {
 
 function renderStats(result) {
   const host = $('#grid-stats');
-  const t = result.timings || {};
+  const tm = result.timings || {};
   const rows = [
-    { name: '파싱/준비 (prepare)', value: t.prepareMs, unit: 'ms', note: 'PreparedStatement 생성 시간' },
-    { name: '실행 (execute)', value: t.executeMs, unit: 'ms', note: '서버가 커서를 열 때까지' },
-    { name: '인출 (fetch)', value: t.fetchMs, unit: 'ms', note: '결과 행을 모두 받아오는 시간' },
-    { name: '합계', value: t.totalMs, unit: 'ms', note: '' }
+    { name: t('wb.tPrepare'), value: tm.prepareMs, unit: 'ms', note: t('wb.tPrepareNote') },
+    { name: t('wb.tExecute'), value: tm.executeMs, unit: 'ms', note: t('wb.tExecuteNote') },
+    { name: t('wb.tFetch'), value: tm.fetchMs, unit: 'ms', note: t('wb.tFetchNote') },
+    { name: t('wb.tTotal'), value: tm.totalMs, unit: 'ms', note: '' }
   ];
   if (result.stats) {
     for (const [k, v] of Object.entries(result.stats)) {
       rows.push({ name: k, value: v, unit: '', note: statNote(k) });
     }
-    $('#stats-summary').textContent = '세션 통계 증분(V$MYSTAT)입니다. 시간보다 흔들림이 적어 튜닝 판정의 1차 근거로 쓰세요.';
+    $('#stats-summary').textContent = t('wb.statsNote');
   } else {
-    $('#stats-summary').textContent = 'V$MYSTAT 접근 권한이 없어 시간만 측정했습니다. 이 환경에서는 반복 측정(벤치마크)으로 보완하세요.';
+    $('#stats-summary').textContent = t('wb.statsNoPriv');
   }
   renderTable(host, rows, [
-    { field: 'name', header: '항목', width: 250 },
-    { field: 'value', header: '값', width: 120, align: 'right', type: 'number' },
-    { field: 'unit', header: '단위', width: 60 },
-    { field: 'note', header: '설명', width: 420 }
+    { field: 'name', header: t('col.item'), width: 250 },
+    { field: 'value', header: t('col.value'), width: 120, align: 'right', type: 'number' },
+    { field: 'unit', header: t('col.unit'), width: 60 },
+    { field: 'note', header: t('col.desc'), width: 420 }
   ], { rowNumber: false, filterable: false });
 }
 
-const STAT_NOTES = {
-  'session logical reads': '논리적 블록 읽기 총량. 튜닝 효과를 가장 잘 반영하는 지표.',
-  'consistent gets': '일관성 읽기(주로 SELECT). 줄어들면 실질적으로 빨라진 것.',
-  'db block gets': '현재 모드 읽기(주로 DML).',
-  'physical reads': '디스크에서 읽은 블록. 버퍼 캐시 상태에 따라 흔들린다.',
-  'sorts (memory)': '메모리 정렬 횟수.',
-  'sorts (disk)': '디스크 정렬 횟수. 0 이 아니면 PGA 부족 신호.',
-  'table scans (long tables)': '큰 테이블 전체 스캔 횟수.',
-  'table fetch by rowid': '인덱스를 타고 행을 찾은 횟수.',
-  'CPU used by this session': 'CPU 사용(1/100초).',
-  'parse count (hard)': '하드 파싱 횟수. 바인드 변수 미사용의 대표 신호.'
+// 통계 이름 → 사전 키. 언어 변경 후에도 갱신되도록 값이 아니라 키만 고정한다.
+const STAT_NOTE_KEYS = {
+  'session logical reads': 'wb.sn.logicalReads',
+  'consistent gets': 'wb.sn.consistentGets',
+  'db block gets': 'wb.sn.dbBlockGets',
+  'physical reads': 'wb.sn.physicalReads',
+  'sorts (memory)': 'wb.sn.sortsMemory',
+  'sorts (disk)': 'wb.sn.sortsDisk',
+  'table scans (long tables)': 'wb.sn.tableScans',
+  'table fetch by rowid': 'wb.sn.fetchByRowid',
+  'CPU used by this session': 'wb.sn.cpuUsed',
+  'parse count (hard)': 'wb.sn.hardParse'
 };
 
-function statNote(k) { return STAT_NOTES[k] || ''; }
+function statNote(k) { return STAT_NOTE_KEYS[k] ? t(STAT_NOTE_KEYS[k]) : ''; }
 
 // ── 비교 검증 ──────────────────────────────────────────────────────────────
 
@@ -600,12 +601,12 @@ async function compare(btn) {
   const before = state.editors.before.currentStatement().sql.trim();
   const after = state.editors.after.currentStatement().sql.trim();
   if (!before || !after) {
-    toast('튜닝 전/후 SQL 이 모두 필요합니다.', 'warn');
+    toast(t('wb.needBothSql'), 'warn');
     return;
   }
 
   showTab('verify');
-  $('#verify-body').innerHTML = '<p class="pad muted">전·후 SQL 을 번갈아 실행하며 측정하고 있습니다…</p>';
+  $('#verify-body').innerHTML = `<p class="pad muted">${esc(t('wb.comparing'))}</p>`;
   setRunning(true);
 
   await withBusy(btn, async () => {
@@ -615,15 +616,15 @@ async function compare(btn) {
       renderCompare(r);
       const v = r.verification || {};
       const d = (r.performance && r.performance.delta) || {};
-      logMsg(`비교 검증: ${v.verdictLabel || v.verdict || '-'} / 성능 ${fmtPct(d.improvementPct)}`,
+      logMsg(t('wb.compareLog', { verdict: v.verdictLabel || v.verdict || '-', perf: fmtPct(d.improvementPct) }),
         v.verdict === 'DIFFERENT' ? 'err' : 'ok');
     } catch (e) {
       $('#verify-body').innerHTML = `<div class="pad" style="color:var(--danger)">${esc(errText(e))}</div>`;
-      logMsg(`비교 검증 실패: ${errText(e)}`, 'err');
+      logMsg(t('wb.compareFail', { msg: errText(e) }), 'err');
     } finally {
       setRunning(false);
     }
-  }, '검증 중…');
+  }, t('wb.verifying'));
 }
 
 function renderCompare(r) {
@@ -638,25 +639,25 @@ function renderCompare(r) {
 
   // 2) 성능 카드
   const cards = el('div', { class: 'metric-cards' });
-  cards.appendChild(metricCard('응답시간 (중앙값)',
+  cards.appendChild(metricCard(t('wb.respTimeMedian'),
     `${fmtMs(d.beforeMedianMs)} → ${fmtMs(d.afterMedianMs)}`,
-    d.speedup ? `${d.speedup}배` : '', improvementClass(d.improvementPct)));
-  cards.appendChild(metricCard('개선율', fmtPct(d.improvementPct),
-    `${r.runs}회 교차 실행 (워밍업 ${r.warmup}회 제외)`, improvementClass(d.improvementPct)));
+    d.speedup ? t('wb.speedup', { v: d.speedup }) : '', improvementClass(d.improvementPct)));
+  cards.appendChild(metricCard(t('hist.improve'), fmtPct(d.improvementPct),
+    t('wb.crossRuns', { runs: r.runs, warmup: r.warmup }), improvementClass(d.improvementPct)));
 
   const lr = (d.stats || []).find((s) => s.name === 'session logical reads')
     || (d.stats || []).find((s) => s.name === 'consistent gets');
   if (lr) {
-    cards.appendChild(metricCard('논리적 읽기',
+    cards.appendChild(metricCard(t('wb.logicalReadsCard'),
       `${fmtBig(lr.before)} → ${fmtBig(lr.after)}`,
-      `${fmtPct(lr.improvementPct)} · 시간보다 안정적인 지표`, improvementClass(lr.improvementPct)));
+      t('wb.moreStableThanTime', { pct: fmtPct(lr.improvementPct) }), improvementClass(lr.improvementPct)));
   }
   if (r.planDiff) {
     const cost = r.planDiff.rows.find((x) => x.metric === 'totalCost');
     if (cost) {
-      cards.appendChild(metricCard('옵티마이저 비용',
+      cards.appendChild(metricCard(t('wb.optimizerCost'),
         `${fmtBig(cost.before)} → ${fmtBig(cost.after)}`,
-        `${fmtPct(cost.improvementPct)} · 추정치(실측 아님)`, improvementClass(cost.improvementPct)));
+        t('wb.estimateNotMeasured', { pct: fmtPct(cost.improvementPct) }), improvementClass(cost.improvementPct)));
     }
   }
   host.appendChild(cards);
@@ -666,24 +667,23 @@ function renderCompare(r) {
 
   // 3) 세부 표들
   if (d.statsAvailable) {
-    host.appendChild(section('세션 통계 비교 (중앙값)', (hostEl) => {
+    host.appendChild(section(t('wb.statsCompareMedian'), (hostEl) => {
       renderTable(hostEl, d.stats, [
-        { field: 'name', header: '통계 항목', width: 240 },
-        { field: 'before', header: '튜닝 전', width: 120, align: 'right', type: 'number' },
-        { field: 'after', header: '튜닝 후', width: 120, align: 'right', type: 'number' },
-        { field: 'delta', header: '증감', width: 110, align: 'right', type: 'number' },
-        { field: 'improvementPct', header: '개선율(%)', width: 110, align: 'right', type: 'number' }
+        { field: 'name', header: t('col.statName'), width: 240 },
+        { field: 'before', header: t('plan.before'), width: 120, align: 'right', type: 'number' },
+        { field: 'after', header: t('plan.after'), width: 120, align: 'right', type: 'number' },
+        { field: 'delta', header: t('col.delta'), width: 110, align: 'right', type: 'number' },
+        { field: 'improvementPct', header: t('col.improvePct'), width: 110, align: 'right', type: 'number' }
       ], { rowNumber: false, filterable: false });
     }, 'mini-grid tall'));
   } else {
     host.appendChild(el('div', { class: 'verify-section' }, [
-      el('h3', { text: '세션 통계 비교' }),
-      el('div', { class: 'pad muted', html: 'V$MYSTAT 접근 권한이 없어 통계 증분을 수집하지 못했습니다. ' +
-        '이 환경에서는 <b>반복 실행의 중앙값</b>과 <b>결과 동일성</b>이 판단 근거입니다.' })
+      el('h3', { text: t('wb.statsCompare') }),
+      el('div', { class: 'pad muted', html: t('wb.statsCompareNoPriv') })
     ]));
   }
 
-  host.appendChild(section('실행별 소요시간', (hostEl) => {
+  host.appendChild(section(t('wb.perRunTime'), (hostEl) => {
     const rows = [];
     const bruns = perf.beforeRuns || [], aruns = perf.afterRuns || [];
     for (let i = 0; i < Math.max(bruns.length, aruns.length); i++) {
@@ -698,23 +698,23 @@ function renderCompare(r) {
       });
     }
     renderTable(hostEl, rows, [
-      { field: 'run', header: '회차', width: 60, align: 'right' },
-      { field: 'beforeMs', header: '전 합계(ms)', width: 110, align: 'right', type: 'number' },
-      { field: 'beforeExecMs', header: '전 실행(ms)', width: 110, align: 'right', type: 'number' },
-      { field: 'afterMs', header: '후 합계(ms)', width: 110, align: 'right', type: 'number' },
-      { field: 'afterExecMs', header: '후 실행(ms)', width: 110, align: 'right', type: 'number' },
-      { field: 'rows', header: '행수', width: 100, align: 'right' }
+      { field: 'run', header: t('cd.runNo'), width: 60, align: 'right' },
+      { field: 'beforeMs', header: t('col.beforeTotalMs'), width: 110, align: 'right', type: 'number' },
+      { field: 'beforeExecMs', header: t('col.beforeExecMs'), width: 110, align: 'right', type: 'number' },
+      { field: 'afterMs', header: t('col.afterTotalMs'), width: 110, align: 'right', type: 'number' },
+      { field: 'afterExecMs', header: t('col.afterExecMs'), width: 110, align: 'right', type: 'number' },
+      { field: 'rows', header: t('col.rows'), width: 100, align: 'right' }
     ], { rowNumber: false, filterable: false });
   }));
 
   if (r.planDiff) {
-    host.appendChild(section('실행계획 요약 비교 (옵티마이저 추정치)', (hostEl) => {
-      renderTable(hostEl, r.planDiff.rows.map((x) => ({ ...x, metric: PLAN_METRIC_LABEL[x.metric] || x.metric })), [
-        { field: 'metric', header: '지표', width: 180 },
-        { field: 'before', header: '튜닝 전', width: 120, align: 'right', type: 'number' },
-        { field: 'after', header: '튜닝 후', width: 120, align: 'right', type: 'number' },
-        { field: 'delta', header: '증감', width: 110, align: 'right', type: 'number' },
-        { field: 'improvementPct', header: '개선율(%)', width: 110, align: 'right', type: 'number' }
+    host.appendChild(section(t('wb.planCompare'), (hostEl) => {
+      renderTable(hostEl, r.planDiff.rows.map((x) => ({ ...x, metric: planMetricLabel(x.metric) })), [
+        { field: 'metric', header: t('col.metric'), width: 180 },
+        { field: 'before', header: t('plan.before'), width: 120, align: 'right', type: 'number' },
+        { field: 'after', header: t('plan.after'), width: 120, align: 'right', type: 'number' },
+        { field: 'delta', header: t('col.delta'), width: 110, align: 'right', type: 'number' },
+        { field: 'improvementPct', header: t('col.improvePct'), width: 110, align: 'right', type: 'number' }
       ], { rowNumber: false, filterable: false });
     }));
   }
@@ -725,11 +725,15 @@ function renderCompare(r) {
   }
 }
 
-const PLAN_METRIC_LABEL = {
-  totalCost: '총 비용', estimatedRows: '예상 행수', steps: '계획 단계 수',
-  fullScans: '전체 테이블 스캔', cartesian: '카티션 조인', indexScans: '인덱스 접근',
-  sorts: '정렬 단계', hashJoins: '해시 조인', nestedLoops: '중첩 루프'
-};
+// 지표명은 사전에서 가져온다 — 언어를 바꿔도 다시 그리면 갱신된다.
+function planMetricLabel(m) {
+  const keys = {
+    totalCost: 'wb.pm.totalCost', estimatedRows: 'wb.pm.estimatedRows', steps: 'wb.pm.steps',
+    fullScans: 'wb.pm.fullScans', cartesian: 'wb.pm.cartesian', indexScans: 'wb.pm.indexScans',
+    sorts: 'wb.pm.sorts', hashJoins: 'wb.pm.hashJoins', nestedLoops: 'wb.pm.nestedLoops'
+  };
+  return keys[m] ? t(keys[m]) : m;
+}
 
 /**
  * 전/후 비교 차트.
@@ -740,12 +744,12 @@ const PLAN_METRIC_LABEL = {
  *  2) 주요 지표를 "원본=100" 으로 정규화한 상대 막대(값이 낮을수록 좋음)
  */
 function compareChartSection(d) {
-  const wrap = el('div', { class: 'verify-section' }, [el('h3', { text: '전 / 후 비교 차트' })]);
+  const wrap = el('div', { class: 'verify-section' }, [el('h3', { text: t('wb.compareChart') })]);
 
   // 정규화 상대 비교(원본=100) 데이터 준비
   const relRows = [];
   if (isNum(d.beforeMedianMs) && d.beforeMedianMs > 0) {
-    relRows.push({ label: '응답시간', before: 100, after: rel(d.afterMedianMs, d.beforeMedianMs) });
+    relRows.push({ label: t('wb.respTime'), before: 100, after: rel(d.afterMedianMs, d.beforeMedianMs) });
   }
   for (const name of ['session logical reads', 'consistent gets', 'physical reads']) {
     const s = (d.stats || []).find((x) => x.name === name);
@@ -756,21 +760,21 @@ function compareChartSection(d) {
   const costRow = (state.lastCompare && state.lastCompare.planDiff && state.lastCompare.planDiff.rows || [])
     .find((x) => x.metric === 'totalCost');
   if (costRow && costRow.before > 0) {
-    relRows.push({ label: '옵티마이저 비용', before: 100, after: rel(costRow.after, costRow.before) });
+    relRows.push({ label: t('wb.optimizerCost'), before: 100, after: rel(costRow.after, costRow.before) });
   }
 
   // 두 그래프를 한 줄에(비교 대상이 전/후 둘뿐이라 나란히 두는 편이 읽기 좋다)
   const hasRel = relRows.length > 1;
   const row = el('div', { class: `chart-row ${hasRel ? '' : 'single'}` });
   const timeCol = el('div', { class: 'chart-col' }, [
-    el('div', { class: 'chart-label muted', text: '응답시간 (ms, 낮을수록 좋음)' }),
+    el('div', { class: 'chart-label muted', text: t('wb.chartTimeLabel') }),
     el('div', { class: 'chart-host' })
   ]);
   row.appendChild(timeCol);
   let relCol = null;
   if (hasRel) {
     relCol = el('div', { class: 'chart-col' }, [
-      el('div', { class: 'chart-label muted', text: '상대 비교 (원본 = 100, 낮을수록 개선)' }),
+      el('div', { class: 'chart-label muted', text: t('wb.chartRelLabel') }),
       el('div', { class: 'chart-host' })
     ]);
     row.appendChild(relCol);
@@ -780,12 +784,12 @@ function compareChartSection(d) {
   setTimeout(() => {
     renderCompareChart(timeCol.querySelector('.chart-host'), {
       title: '',
-      rows: [{ label: '응답시간(ms)', before: d.beforeMedianMs, after: d.afterMedianMs }],
-      beforeName: '튜닝 전', afterName: '튜닝 후', height: 220
+      rows: [{ label: t('wb.respTimeMs'), before: d.beforeMedianMs, after: d.afterMedianMs }],
+      beforeName: t('plan.before'), afterName: t('plan.after'), height: 220
     });
     if (relCol) {
       renderCompareChart(relCol.querySelector('.chart-host'), {
-        title: '', rows: relRows, beforeName: '튜닝 전(100)', afterName: '튜닝 후', height: 220
+        title: '', rows: relRows, beforeName: t('wb.beforeIs100'), afterName: t('plan.after'), height: 220
       });
     }
   }, 0);
@@ -797,7 +801,8 @@ function rel(after, before) {
 }
 function isNum(v) { return v !== null && v !== undefined && Number.isFinite(Number(v)); }
 function statShort(name) {
-  return { 'session logical reads': '논리읽기', 'consistent gets': '일관성읽기', 'physical reads': '물리읽기' }[name] || name;
+  const keys = { 'session logical reads': 'wb.ss.logicalReads', 'consistent gets': 'wb.ss.consistentGets', 'physical reads': 'wb.ss.physicalReads' };
+  return keys[name] ? t(keys[name]) : name;
 }
 
 function improvementClass(pct) {
@@ -817,15 +822,15 @@ function metricCard(label, value, sub, cls) {
 
 function verdictBlock(v) {
   const map = {
-    IDENTICAL: { cls: 'v-identical', icon: '✔', title: '결과 완전 동일',
-      desc: '행 내용과 순서까지 같습니다. 튜닝 후 SQL 로 안전하게 교체할 수 있습니다.' },
-    SAME_SET: { cls: 'v-sameset', icon: '≈', title: '행 집합은 같지만 순서가 다릅니다',
-      desc: 'ORDER BY 유무나 정렬 기준이 달라졌습니다. 호출하는 쪽이 순서에 의존한다면 문제가 됩니다.' },
-    DIFFERENT: { cls: 'v-different', icon: '✕', title: '결과가 다릅니다',
-      desc: '튜닝 후 SQL 이 다른 결과를 냅니다. 성능과 무관하게 그대로 적용하면 안 됩니다.' },
-    INCONCLUSIVE: { cls: 'v-skip', icon: '?', title: '결과 비교 불가',
-      desc: v.reason || '조회문이 아니어서 행 단위 비교를 하지 못했습니다.' },
-    SKIPPED: { cls: 'v-skip', icon: '–', title: '결과 검증을 건너뛰었습니다', desc: '' }
+    IDENTICAL: { cls: 'v-identical', icon: '✔', title: t('wb.vd.identicalTitle'),
+      desc: t('wb.vd.identicalDesc') },
+    SAME_SET: { cls: 'v-sameset', icon: '≈', title: t('wb.vd.samesetTitle'),
+      desc: t('wb.vd.samesetDesc') },
+    DIFFERENT: { cls: 'v-different', icon: '✕', title: t('wb.vd.differentTitle'),
+      desc: t('wb.vd.differentDesc') },
+    INCONCLUSIVE: { cls: 'v-skip', icon: '?', title: t('wb.vd.inconclusiveTitle'),
+      desc: v.reason || t('wb.vd.inconclusiveDesc') },
+    SKIPPED: { cls: 'v-skip', icon: '–', title: t('wb.vd.skippedTitle'), desc: '' }
   };
   const info = map[v.verdict] || map.SKIPPED;
   const box = el('div', { class: `verdict ${info.cls}` }, [
@@ -841,15 +846,15 @@ function verdictBlock(v) {
 
 function hashRow(v) {
   if (!v.beforeHash || !v.afterHash) return el('div');
-  const eq = (a, b) => (a === b ? '<span class="hash-eq">일치</span>' : '<span class="hash-ne">불일치</span>');
+  const eq = (a, b) => (a === b ? t('wb.hashEq') : t('wb.hashNe'));
   const b = v.beforeHash, a = v.afterHash;
   return el('div', {
     class: 'hash-row',
     html:
-      `행수 ${fmtNum(v.beforeRowCount)} → ${fmtNum(v.afterRowCount)} ${eq(v.beforeRowCount, v.afterRowCount)}<br>` +
-      `순서포함 지문 ${esc(String(b.ordered).slice(0, 16))} → ${esc(String(a.ordered).slice(0, 16))} ${eq(b.ordered, a.ordered)}<br>` +
-      `집합 지문 ${esc(String(b.unordered).slice(0, 16))} → ${esc(String(a.unordered).slice(0, 16))} ${eq(b.unordered, a.unordered)}` +
-      (v.truncated ? '<br><span style="color:var(--warn)">※ 최대 인출 행수에서 잘린 상태의 비교입니다.</span>' : '')
+      t('wb.hashRows', { before: fmtNum(v.beforeRowCount), after: fmtNum(v.afterRowCount), eq: eq(v.beforeRowCount, v.afterRowCount) }) + '<br>' +
+      t('wb.hashOrdered', { before: esc(String(b.ordered).slice(0, 16)), after: esc(String(a.ordered).slice(0, 16)), eq: eq(b.ordered, a.ordered) }) + '<br>' +
+      t('wb.hashUnordered', { before: esc(String(b.unordered).slice(0, 16)), after: esc(String(a.unordered).slice(0, 16)), eq: eq(b.unordered, a.unordered) }) +
+      (v.truncated ? t('wb.hashTruncated') : '')
   });
 }
 
@@ -863,10 +868,10 @@ function section(title, builder, gridClass = 'mini-grid') {
 
 function diffBlock(v, r) {
   const wrap = el('div', { class: 'verify-section' }, [
-    el('h3', { text: '결과 차이 표본' }),
+    el('h3', { text: t('wb.diffSample') }),
     el('div', {
       class: 'muted', style: 'margin-bottom:6px;',
-      text: `튜닝 전에만 있는 행 ${fmtNum(v.diff.onlyInBefore)}건, 튜닝 후에만 있는 행 ${fmtNum(v.diff.onlyInAfter)}건 (각 최대 20건 표본)`
+      text: t('wb.diffSummary', { before: fmtNum(v.diff.onlyInBefore), after: fmtNum(v.diff.onlyInAfter) })
     })
   ]);
   const mk = (label, rows, cols) => {
@@ -888,10 +893,10 @@ function diffBlock(v, r) {
   const bcols = (r.beforeSample && r.beforeSample.columns) || [];
   const acols = (r.afterSample && r.afterSample.columns) || [];
   if (v.diff.beforeSampleRows && v.diff.beforeSampleRows.length) {
-    wrap.appendChild(mk('튜닝 전에만 있는 행', v.diff.beforeSampleRows, bcols));
+    wrap.appendChild(mk(t('wb.onlyBefore'), v.diff.beforeSampleRows, bcols));
   }
   if (v.diff.afterSampleRows && v.diff.afterSampleRows.length) {
-    wrap.appendChild(mk('튜닝 후에만 있는 행', v.diff.afterSampleRows, acols));
+    wrap.appendChild(mk(t('wb.onlyAfter'), v.diff.afterSampleRows, acols));
   }
   return wrap;
 }
@@ -900,12 +905,12 @@ function diffBlock(v, r) {
 
 function exportResult(kind) {
   const host = $('#grid-result');
-  if (!host._ogGrid) return toast('내보낼 결과가 없습니다.', 'warn');
+  if (!host._ogGrid) return toast(t('wb.noExport'), 'warn');
   try {
     if (kind === 'csv') host._ogGrid.exportCsv({ filename: `result_${stamp()}.csv` });
     else host._ogGrid.exportExcel({ filename: `result_${stamp()}.xlsx` });
   } catch (e) {
-    toast(`내보내기 실패: ${e.message}`, 'err');
+    toast(t('wb.exportFail', { msg: e.message }), 'err');
   }
 }
 
@@ -927,7 +932,7 @@ async function copyResult() {
     }).join('\t'));
   const tsv = [header].concat(lines).join('\n');
   const ok = await copyToClipboard(tsv);
-  toast(ok ? `${t('common.copied')} (${lines.length}행)` : t('common.copyFail'), ok ? 'ok' : 'err');
+  toast(ok ? t('wb.copiedRows', { msg: t('common.copied'), n: lines.length }) : t('common.copyFail'), ok ? 'ok' : 'err');
 }
 
 /** 현재 실행계획 텍스트를 복사한다. */

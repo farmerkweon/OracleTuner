@@ -16,6 +16,9 @@
  *   Ctrl+/            선택 줄 주석 토글
  */
 
+import { t } from './i18n.js';
+import { esc } from './util.js';
+
 const T = () => globalThis.SqlTokenizer;
 
 /**
@@ -42,7 +45,7 @@ export class SqlEditor {
         <div class="sqled-scroll">
           <pre class="sqled-highlight" aria-hidden="true"><code></code></pre>
           <textarea class="sqled-input" spellcheck="false" wrap="off"
-            aria-label="${opts.name || 'SQL'} 편집기"></textarea>
+            aria-label="${esc(t('ed.aria', { name: opts.name || 'SQL' }))}"></textarea>
         </div>
       </div>`;
 

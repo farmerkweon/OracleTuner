@@ -3,6 +3,8 @@
  * 프레임워크를 쓰지 않으므로 여기서 반복되는 잡일을 흡수한다.
  */
 
+import { t } from './i18n.js';
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -47,8 +49,8 @@ export function fmtMs(v) {
   if (v === null || v === undefined) return '-';
   const n = Number(v);
   if (Number.isNaN(n)) return String(v);
-  if (n >= 60000) return `${(n / 60000).toFixed(2)} 분`;
-  if (n >= 1000) return `${(n / 1000).toFixed(3)} 초`;
+  if (n >= 60000) return t('unit.min', { v: (n / 60000).toFixed(2) });
+  if (n >= 1000) return t('unit.sec', { v: (n / 1000).toFixed(3) });
   return `${n.toFixed(1)} ms`;
 }
 
@@ -115,7 +117,7 @@ export function logMsg(text, kind = '') {
 
 /** 오류를 사람이 읽을 수 있는 문자열로 만든다(ORA 코드 포함). */
 export function errText(e) {
-  if (!e) return '알 수 없는 오류';
+  if (!e) return t('common.unknownError');
   const detail = e.detail || (e.error && e.error.detail);
   const base = e.message || String(e);
   if (detail && detail.ora) return `${detail.ora} ${base}`;

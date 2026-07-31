@@ -34,7 +34,7 @@ const P = require('../server/paths');
 const portable = require('./build-portable');
 const tray = require('./build-tray');
 
-const VERSION = require('../package.json').version + '-beta.5';
+const VERSION = require('../package.json').version + '-beta.6';
 const DIST = path.join(P.root, 'dist');
 
 /** 스테이징에 그대로 복사하는 "app" 항목(패치 설치파일이 나중에 교체할 부분과 정확히 일치). */

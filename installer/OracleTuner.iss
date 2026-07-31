@@ -26,7 +26,7 @@
 ;   그때만 UAC 승격을 선택할 수 있다(PrivilegesRequiredOverridesAllowed=dialog).
 
 #define AppName        "Oracle Tuner"
-#define AppVersion     "1.0.0-beta.5"
+#define AppVersion     "1.0.0-beta.6"
 #define AppPublisher   "foxnail.kr"
 #define AppURL         "https://foxnail.kr"
 
@@ -41,7 +41,7 @@
 
 ; 스테이징 폴더 — build-installer.js 가 /DSrcDir 로 넘겨준다. 수동 빌드용 기본값.
 #ifndef SrcDir
-  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.5-installer-win-x64-no-jre"
+  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.6-installer-win-x64-no-jre"
 #endif
 
 ; 결과 파일 이름에 붙는 꼬리표. Java 내장 빌드는 "-with-jre" 를 넘겨받아
@@ -178,6 +178,9 @@ Filename: "{app}\{#AppLauncher}"; Description: "{cm:LaunchProgram,{#AppName}}"; 
 
 var
   PortPage: TInputQueryWizardPage;
+  { 기존 설정 보존용 — 재설치 때 사용자 설정을 초기화하지 않기 위해 쓴다. }
+  SettingsPath: string;
+  HadSettings: Boolean;
 
 { ── 실행 중인 앱 정지 ──────────────────────────────────────────────────────
   ★ 2026-07-31 실사용 사고의 직접 대응이다.
@@ -287,14 +290,64 @@ begin
   Result := True;
 end;
 
-procedure InitializeWizard;
+{ 기존 설정 파일에서 값 하나를 꺼낸다. 정식 JSON 파서를 넣을 자리가 아니므로
+  "키" 뒤의 숫자/문자열만 훑는 최소 구현이다. 못 찾으면 빈 문자열을 돌려준다. }
+function ReadSettingValue(Key: string): string;
+var
+  Lines: TArrayOfString;
+  I, P, Q: Integer;
+  S: string;
 begin
+  Result := '';
+  if not LoadStringsFromFile(SettingsPath, Lines) then exit;
+  for I := 0 to GetArrayLength(Lines) - 1 do
+  begin
+    P := Pos('"' + Key + '"', Lines[I]);
+    if P > 0 then
+    begin
+      S := Copy(Lines[I], P + Length(Key) + 2, Length(Lines[I]));
+      P := Pos(':', S);
+      if P = 0 then exit;
+      S := Trim(Copy(S, P + 1, Length(S)));
+      { 문자열이면 따옴표 안쪽, 숫자면 구분자 앞까지 }
+      if (Length(S) > 0) and (S[1] = '"') then
+      begin
+        S := Copy(S, 2, Length(S));
+        Q := Pos('"', S);
+        if Q > 0 then Result := Copy(S, 1, Q - 1);
+      end
+      else
+      begin
+        Q := 1;
+        while (Q <= Length(S)) and (S[Q] >= '0') and (S[Q] <= '9') do Q := Q + 1;
+        Result := Copy(S, 1, Q - 1);
+      end;
+      exit;
+    end;
+  end;
+end;
+
+procedure InitializeWizard;
+var
+  Existing: string;
+begin
+  SettingsPath := ExpandConstant('{localappdata}\OracleTuner\config\settings.json');
+  HadSettings  := FileExists(SettingsPath);
+
   PortPage := CreateInputQueryPage(wpSelectTasks,
     ExpandConstant('{cm:PortPageTitle}'),
     ExpandConstant('{cm:PortPageSubtitle}'),
     '');
   PortPage.Add(ExpandConstant('{cm:PortPrompt}'), False);
-  PortPage.Values[0] := '7070';
+
+  { ★ 재설치 때 기존 포트를 그대로 채워 준다 (2026-07-31 발주자 지적:
+      "설치할 때마다 새로 접속 포트 입력하고 그러는 게 좀 그르네").
+      이전에는 매번 7070 으로 되돌아갔고, WriteSettings 가 파일을 통째로
+      덮어써서 언어 설정까지 초기화됐다. }
+  Existing := '';
+  if HadSettings then Existing := ReadSettingValue('port');
+  if Existing <> '' then PortPage.Values[0] := Existing
+  else PortPage.Values[0] := '7070';
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -325,12 +378,31 @@ begin
   ForceDirectories(DataDir + '\data');
   ForceDirectories(DataDir + '\logs');
 
-  case ActiveLanguage of
-    'korean':   Loc := 'ko';
-    'japanese': Loc := 'ja';
-    'chinese':  Loc := 'zh';
+  { ★ 재설치 때 사용자 설정을 덮어쓰지 않는다 (2026-07-31 발주자 지적).
+      이전에는 설치할 때마다 이 파일을 통째로 새로 써서 포트도 언어도 매번 초기화됐다.
+      접속정보 자체는 data\oracletuner.db 에 있어 살아남았지만, 포트·언어가 되돌아가
+      "설치할 때마다 새로 입력하는" 체감이 생겼다.
+
+      규칙: 기존 파일이 있고 사용자가 포트를 바꾸지 않았으면 **손대지 않는다.**
+            포트를 바꿨으면 그 값만 반영하되 언어는 기존 설정을 유지한다
+            (설치 화면 언어 = 앱 UI 언어라고 단정할 수 없다. 재설치 때 영어로
+             깔았다고 쓰던 한국어 UI 를 뺏으면 안 된다). }
+  if HadSettings then
+  begin
+    Loc := ReadSettingValue('locale');
+    if Loc = '' then Loc := 'ko';
+    if ReadSettingValue('port') = Trim(PortPage.Values[0]) then
+      exit;   { 바뀐 게 없다 — 기존 파일을 그대로 둔다 }
+  end
   else
-    Loc := 'en';
+  begin
+    case ActiveLanguage of
+      'korean':   Loc := 'ko';
+      'japanese': Loc := 'ja';
+      'chinese':  Loc := 'zh';
+    else
+      Loc := 'en';
+    end;
   end;
 
   Json :=

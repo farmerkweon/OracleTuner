@@ -26,7 +26,7 @@
 ;   그때만 UAC 승격을 선택할 수 있다(PrivilegesRequiredOverridesAllowed=dialog).
 
 #define AppName        "Oracle Tuner"
-#define AppVersion     "1.0.0-beta.4"
+#define AppVersion     "1.0.0-beta.5"
 #define AppPublisher   "foxnail.kr"
 #define AppURL         "https://foxnail.kr"
 
@@ -41,7 +41,7 @@
 
 ; 스테이징 폴더 — build-installer.js 가 /DSrcDir 로 넘겨준다. 수동 빌드용 기본값.
 #ifndef SrcDir
-  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.4-installer-win-x64-no-jre"
+  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.5-installer-win-x64-no-jre"
 #endif
 
 ; 결과 파일 이름에 붙는 꼬리표. Java 내장 빌드는 "-with-jre" 를 넘겨받아
@@ -132,6 +132,8 @@ Name: "desktopicon"; Description: "{cm:DesktopIcon}"; \
 Source: "{#SrcDir}\server\*";       DestDir: "{app}\server";       Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SrcDir}\web\*";          DestDir: "{app}\web";          Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SrcDir}\shared\*";       DestDir: "{app}\shared";       Flags: ignoreversion recursesubdirs createallsubdirs
+; ★ demo/ 는 런타임 콘텐츠다. 빠지면 "데모데이터 생성"·"샘플예제" 버튼이 죽는다(2026-07-31 사고).
+Source: "{#SrcDir}\demo\*";         DestDir: "{app}\demo";         Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SrcDir}\java\*";         DestDir: "{app}\java";         Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SrcDir}\node_modules\*"; DestDir: "{app}\node_modules"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SrcDir}\package.json";   DestDir: "{app}";              Flags: ignoreversion

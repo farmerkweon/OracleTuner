@@ -20,7 +20,7 @@ const { execFileSync, spawnSync } = require('child_process');
 const P = require('../server/paths');
 const tray = require('./build-tray');
 
-const VERSION = require('../package.json').version + '-beta.4';
+const VERSION = require('../package.json').version + '-beta.5';
 const DIST = path.join(P.root, 'dist');
 
 /** 배포본에 포함할 항목 (src → 배포본 내 경로) */
@@ -29,7 +29,6 @@ const INCLUDE = [
   ['shared', 'shared'],
   ['web', 'web'],
   ['demo', 'demo'],
-  ['tools/install-demo.js', 'tools/install-demo.js'],
   ['tools/fetch-driver.js', 'tools/fetch-driver.js'],
   ['java/src', 'java/src'],
   ['java/out', 'java/out'],

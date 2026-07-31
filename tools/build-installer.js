@@ -34,11 +34,11 @@ const P = require('../server/paths');
 const portable = require('./build-portable');
 const tray = require('./build-tray');
 
-const VERSION = require('../package.json').version + '-beta.4';
+const VERSION = require('../package.json').version + '-beta.5';
 const DIST = path.join(P.root, 'dist');
 
 /** 스테이징에 그대로 복사하는 "app" 항목(패치 설치파일이 나중에 교체할 부분과 정확히 일치). */
-const APP_ITEMS = ['server', 'web', 'shared', 'java/src', 'java/out', 'java/build.js', 'package.json', 'LICENSE'];
+const APP_ITEMS = ['server', 'web', 'shared', 'demo', 'java/src', 'java/out', 'java/build.js', 'package.json', 'LICENSE'];
 
 /** manifest 해시 대상 — 패치가 실제로 교체하는 최소 집합(런타임 실행에 필요한 것만). */
 const MANIFEST_ITEMS = ['server', 'web', 'shared', 'java/out', 'java/lib', 'package.json'];

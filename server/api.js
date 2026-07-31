@@ -819,7 +819,7 @@ route('GET', '/api/snippet-scopes', async () => ({ scopes: snippets.scopes() }))
 
 /** demo/ 폴더의 항목들(설치용). */
 function demoItems() {
-  const { readSqlFile } = require('../tools/install-demo');
+  const { readSqlFile } = require('./demo-install');
   const demoDir = path.join(P.root, 'demo');
   const items = [readSqlFile('01-setup.sql')];
   for (const ex of require(path.join(demoDir, '02-examples.js'))) {
@@ -856,7 +856,7 @@ route('POST', '/api/demo/setup', async ({ body }) => {
   const sid = sessionId(body);
   const drop = body.drop !== false; // 기본: 기존 데모 표를 먼저 정리하고 새로 만든다
 
-  const { readSqlFile } = require('../tools/install-demo');
+  const { readSqlFile } = require('./demo-install');
   const steps = [];
   if (drop) steps.push({ label: '기존 데모 표 정리', sql: readSqlFile('09-drop.sql').sql, ignoreError: true });
   steps.push({ label: '표·데이터·인덱스·통계 생성', sql: readSqlFile('01-setup.sql').sql, ignoreError: false });

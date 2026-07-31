@@ -1,74 +1,16 @@
 'use strict';
 /**
- * 데모 설치 — 예제 SQL 을 SQL 라이브러리에 넣어 화면 [SQL 목록]에서 바로 열 수 있게 한다.
+ * 데모 설치 CLI 진입점 (개발 편의용).
  *
- * 사용:
- *   node tools/install-demo.js              # 공용(_shared) 목록에 설치
- *   node tools/install-demo.js conn_c12ab3  # 특정 접속 스코프에 설치
+ * ★ 본체는 server/demo-install.js 로 옮겼다 (2026-07-31).
+ *   이유: 이 기능은 **런타임 코드**인데 빌드 도구 폴더인 tools/ 에 있었다.
+ *   설치판 스테이징은 tools/ 를 담지 않으므로(담아서도 안 된다 — tools/publish 에는
+ *   서버 접속 정보가 들어간다), 설치판에서 require('../tools/install-demo') 가
+ *   MODULE_NOT_FOUND 로 죽었다.
+ *   증상: "데모데이터 생성 안 먹힘", "샘플예제 버튼 눌러도 에러" (2026-07-31 실사용 보고).
  *
- * 설치되는 것
- *   ① 데모 데이터 만들기      (01-setup.sql   — 30만 건 표 + 인덱스 + 통계)
- *   ①~⑧ 튜닝 예제 SQL        (02-examples.js — 튜닝 경합이 실제로 나는 것들)
- *   ⑨ 데모 데이터 정리        (09-cleanup.sql)
- *
- * 데이터를 만들 때는 [설정] → 안전모드를 꺼야 INSERT 가 남습니다(안전모드는 DML 을 자동 롤백).
+ * 사용: node tools/install-demo.js [접속스코프]
  */
-
-const fs = require('fs');
-const path = require('path');
-const P = require('../server/paths');
-const snippets = require('../server/snippet-store');
-
-const DEMO_DIR = path.join(P.root, 'demo');
-
-function readSqlFile(file) {
-  const text = fs.readFileSync(path.join(DEMO_DIR, file), 'utf8');
-  // 파일 앞머리의 --@ 메타를 읽어 이름/태그/설명으로 쓴다
-  const meta = { name: file.replace(/\.sql$/, ''), tags: ['데모'], desc: '' };
-  const lines = text.split('\n');
-  let i = 0;
-  for (; i < lines.length; i++) {
-    const m = lines[i].match(/^--@\s*(\w+)\s*:\s*(.*)$/);
-    if (!m) break;
-    const k = m[1].toLowerCase();
-    const v = m[2].trim();
-    if (k === 'name') meta.name = v;
-    else if (k === 'tags') meta.tags = v.split(',').map((s) => s.trim()).filter(Boolean);
-    else if (k === 'desc') meta.desc = v;
-  }
-  meta.sql = lines.slice(i).join('\n').replace(/^\s*\n/, '');
-  return meta;
-}
-
-function main() {
-  const scope = process.argv[2] || '_shared';
-  P.ensureDirs();
-
-  const items = [];
-  items.push(readSqlFile('01-setup.sql'));
-  for (const ex of require(path.join(DEMO_DIR, '02-examples.js'))) {
-    items.push({ name: ex.name, tags: ex.tags, desc: ex.desc, sql: ex.sql });
-  }
-  items.push(readSqlFile('09-drop.sql'));
-
-  let n = 0;
-  for (const it of items) {
-    snippets.save(scope, { name: it.name, tags: it.tags, desc: it.desc, sql: it.sql });
-    n++;
-  }
-
-  console.log('');
-  console.log(`[OK] 데모 SQL ${n}건을 설치했습니다 (스코프: ${scope})`);
-  console.log('');
-  console.log('다음 순서로 해보세요:');
-  console.log('  1) 브라우저에서 [SQL 목록] 탭 → "데모" 폴더 확인');
-  console.log('  2) [설정] → 안전모드 끄기  ← INSERT 가 롤백되지 않도록');
-  console.log('  3) "① 데모 데이터 만들기" 를 워크벤치로 열어 문장을 하나씩 실행 (30만 건이라 1~2분)');
-  console.log('  4) [설정] → 안전모드 다시 켜기 (권장)');
-  console.log('  5) 예제 SQL 을 열고 → [튜닝 후보] 탭 → [후보 생성] → [토너먼트 실행]');
-  console.log('');
-}
-
-if (require.main === module) main();
-
-module.exports = { readSqlFile };
+const demo = require('../server/demo-install.js');
+if (require.main === module) demo.main();
+module.exports = demo;

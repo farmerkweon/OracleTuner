@@ -254,15 +254,20 @@ async function handleAction(act, side, btn) {
       default: return;
     }
   } catch (e) {
-    toast(errText(e), 'err');
+    if (!(e && e.toasted)) toast(errText(e), 'err'); // D17 — 이미 안내한 오류는 두 번 띄우지 않는다
     logMsg(t('wb.actionFail', { act, msg: errText(e) }), 'err');
   }
 }
 
 function requireSession() {
   if (!session.connected) {
+    // D17(QA-SWEEP): 여기서 토스트를 띄우고 던진 오류를 handleAction 의 catch 가 다시 토스트로
+    // 띄워서 "먼저 DB 에 접속하세요" + "DB 에 접속되어 있지 않습니다" 두 개가 동시에 떴다.
+    // 이미 안내했다는 표시를 달아 두 번째 토스트를 막는다(로그에는 그대로 남긴다).
     toast(t('common.needConnect'), 'warn');
-    throw new Error(t('wb.notConnected'));
+    const e = new Error(t('wb.notConnected'));
+    e.toasted = true;
+    throw e;
   }
 }
 
@@ -315,7 +320,8 @@ async function runSql(side, btn) {
 
     // 설정에 따라 계획도 같이
     if (window.__otConfig && window.__otConfig.execution && window.__otConfig.execution.autoExplain) {
-      explainSql(side).catch(() => {});
+      // 자동 조회는 계획을 채워만 두고 탭은 결과에 남긴다(D13).
+      explainSql(side, null, { switchTab: false }).catch(() => {});
     }
   } catch (e) {
     $('#result-summary').innerHTML = `<span style="color:var(--danger)">${esc(errText(e))}</span>`;
@@ -395,7 +401,13 @@ function oneLine(sql) {
 
 // ── 실행계획 ───────────────────────────────────────────────────────────────
 
-async function explainSql(side, btn) {
+/**
+ * @param {object} [opts]
+ * @param {boolean} [opts.switchTab=true] 실행계획 탭으로 전환할지. 사용자가 직접 [실행계획] 을
+ *   눌렀을 때는 true, [실행]에 딸려 자동 조회될 때는 false 다 — D13(QA-SWEEP): 사용자가 요청한
+ *   것은 결과인데 자동 조회가 탭을 빼앗아 결과가 안 보였다.
+ */
+async function explainSql(side, btn, { switchTab = true } = {}) {
   requireSession();
   const ed = state.editors[side];
   const st = ed.currentStatement();
@@ -405,7 +417,7 @@ async function explainSql(side, btn) {
     const plan = await api.explain(st.sql);
     state.lastPlan[side] = plan;
     $('#plan-side').value = side;
-    showTab('plan');
+    if (switchTab) showTab('plan');
     showPlan(side);
     if (!plan.available) {
       logMsg(t('wb.planUnavailable', { msg: plan.error || plan.note || '' }), 'err');

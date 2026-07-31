@@ -126,7 +126,7 @@ function renderGenerated(r) {
     rowNumber: false,
     filterable: false,
     masterDetail: {
-      enabled: true, height: 280, heightMode: 'auto', expandMultiple: true,
+      enabled: true, height: 280, heightMode: 'fixed', expandMultiple: true, // D19 — 'auto' 는 무시되면서 내부 설계문서 경고만 찍힌다
       renderer: (row, hostEl) => {
         const draw = (target) => { target.innerHTML = candDetailHtml(row, null); wireDetailButtons(target, row); };
         draw(hostEl);
@@ -359,7 +359,7 @@ function renderResult(r) {
       rowNumber: false,
       filterable: false,
       masterDetail: {
-        enabled: true, height: 340, heightMode: 'auto', expandMultiple: true,
+        enabled: true, height: 340, heightMode: 'fixed', expandMultiple: true, // D19 — 'auto' 는 무시되면서 내부 설계문서 경고만 찍힌다
         renderer: (row, hostEl) => {
           const draw = (target) => { target.innerHTML = candDetailHtml(row, ranking.baseline); wireDetailButtons(target, row); };
           draw(hostEl);
@@ -399,7 +399,7 @@ function renderResult(r) {
       ],
       rowNumber: false, filterable: false,
       masterDetail: {
-        enabled: true, height: 300, heightMode: 'auto',
+        enabled: true, height: 300, heightMode: 'fixed', // D19 — 'auto' 는 무시되면서 내부 설계문서 경고만 찍힌다
         renderer: (row, hostEl) => {
           const draw = (target) => { target.innerHTML = candDetailHtml(row, ranking.baseline); wireDetailButtons(target, row); };
           draw(hostEl);

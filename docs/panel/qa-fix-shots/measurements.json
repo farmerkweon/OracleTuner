@@ -1,0 +1,426 @@
+{
+ "D02": {
+  "before-default": {
+   "cands": {
+    "color": "rgb(158, 94, 0)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "before-modern": {
+   "cands": {
+    "color": "rgb(158, 94, 0)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "before-ocean": {
+   "cands": {
+    "color": "rgb(158, 94, 0)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "before-forest": {
+   "cands": {
+    "color": "rgb(158, 94, 0)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "before-indigo": {
+   "cands": {
+    "color": "rgb(158, 94, 0)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "before-slate": {
+   "cands": {
+    "color": "rgb(255, 176, 61)",
+    "bg": "rgb(255, 176, 61)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(235, 158, 158)",
+    "cr": 2.12
+   }
+  },
+  "before-executive": {
+   "cands": {
+    "color": "rgb(255, 176, 61)",
+    "bg": "rgb(255, 176, 61)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(226, 111, 111)",
+    "cr": 3.12
+   }
+  },
+  "before-dark": {
+   "cands": {
+    "color": "rgb(255, 176, 61)",
+    "bg": "rgb(255, 176, 61)",
+    "cr": 1
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(227, 115, 115)",
+    "cr": 3.01
+   }
+  },
+  "after-default": {
+   "cands": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 5.18
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "after-modern": {
+   "cands": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 5.18
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "after-ocean": {
+   "cands": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 5.18
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "after-forest": {
+   "cands": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 5.18
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "after-indigo": {
+   "cands": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(158, 94, 0)",
+    "cr": 5.18
+   },
+   "diag": {
+    "color": "rgb(255, 255, 255)",
+    "bg": "rgb(198, 40, 40)",
+    "cr": 5.62
+   }
+  },
+  "after-slate": {
+   "cands": {
+    "color": "rgb(38, 50, 56)",
+    "bg": "rgb(255, 176, 61)",
+    "cr": 7.23
+   },
+   "diag": {
+    "color": "rgb(38, 50, 56)",
+    "bg": "rgb(235, 158, 158)",
+    "cr": 6.21
+   }
+  },
+  "after-executive": {
+   "cands": {
+    "color": "rgb(13, 27, 46)",
+    "bg": "rgb(255, 176, 61)",
+    "cr": 9.5
+   },
+   "diag": {
+    "color": "rgb(13, 27, 46)",
+    "bg": "rgb(226, 111, 111)",
+    "cr": 5.55
+   }
+  },
+  "after-dark": {
+   "cands": {
+    "color": "rgb(30, 30, 30)",
+    "bg": "rgb(255, 176, 61)",
+    "cr": 9.15
+   },
+   "diag": {
+    "color": "rgb(30, 30, 30)",
+    "bg": "rgb(227, 115, 115)",
+    "cr": 5.53
+   }
+  }
+ },
+ "D03": {
+  "before-default": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(250, 250, 250)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.04
+  },
+  "before-modern": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(248, 250, 252)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.05
+  },
+  "before-ocean": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(240, 249, 255)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.07
+  },
+  "before-forest": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(241, 248, 241)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.08
+  },
+  "before-indigo": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(245, 246, 255)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.08
+  },
+  "before-slate": {
+   "color": "rgb(38, 50, 56)",
+   "bg": "rgb(46, 61, 68)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.17
+  },
+  "before-executive": {
+   "color": "rgb(13, 27, 46)",
+   "bg": "rgb(11, 26, 44)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.01
+  },
+  "before-dark": {
+   "color": "rgb(30, 30, 30)",
+   "bg": "rgb(37, 37, 37)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 1.09
+  },
+  "after-default": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(76, 49, 185)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 8.58
+  },
+  "after-modern": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(102, 49, 185)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 7.76
+  },
+  "after-ocean": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(57, 49, 185)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 9.08
+  },
+  "after-forest": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(35, 133, 107)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 4.53
+  },
+  "after-indigo": {
+   "color": "rgb(255, 255, 255)",
+   "bg": "rgb(126, 49, 185)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 6.94
+  },
+  "after-slate": {
+   "color": "rgb(38, 50, 56)",
+   "bg": "rgb(174, 172, 231)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 6.18
+  },
+  "after-executive": {
+   "color": "rgb(13, 27, 46)",
+   "bg": "rgb(177, 218, 129)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 10.89
+  },
+  "after-dark": {
+   "color": "rgb(30, 30, 30)",
+   "bg": "rgb(149, 137, 220)",
+   "text": "토너먼트 실행",
+   "cls": "btn btn-sm btn-accent",
+   "cr": 5.47
+  }
+ },
+ "D18": {
+  "before-default": {
+   "color": "rgb(139, 151, 166)",
+   "bg": "rgb(250, 250, 250)",
+   "cr": 2.84
+  },
+  "before-modern": {
+   "color": "rgb(136, 149, 165)",
+   "bg": "rgb(248, 250, 252)",
+   "cr": 2.91
+  },
+  "before-ocean": {
+   "color": "rgb(135, 154, 174)",
+   "bg": "rgb(240, 249, 255)",
+   "cr": 2.71
+  },
+  "before-forest": {
+   "color": "rgb(137, 155, 164)",
+   "bg": "rgb(241, 248, 241)",
+   "cr": 2.67
+  },
+  "before-indigo": {
+   "color": "rgb(137, 150, 172)",
+   "bg": "rgb(245, 246, 255)",
+   "cr": 2.78
+  },
+  "before-slate": {
+   "color": "rgb(137, 145, 149)",
+   "bg": "rgb(46, 61, 68)",
+   "cr": 3.51
+  },
+  "before-executive": {
+   "color": "rgb(95, 107, 122)",
+   "bg": "rgb(11, 26, 44)",
+   "cr": 3.23
+  },
+  "before-dark": {
+   "color": "rgb(118, 118, 118)",
+   "bg": "rgb(37, 37, 37)",
+   "cr": 3.37
+  },
+  "after-default": {
+   "color": "rgb(96, 105, 123)",
+   "bg": "rgb(250, 250, 250)",
+   "cr": 5.29
+  },
+  "after-modern": {
+   "color": "rgb(92, 101, 122)",
+   "bg": "rgb(248, 250, 252)",
+   "cr": 5.58
+  },
+  "after-ocean": {
+   "color": "rgb(90, 109, 136)",
+   "bg": "rgb(240, 249, 255)",
+   "cr": 4.95
+  },
+  "after-forest": {
+   "color": "rgb(93, 110, 121)",
+   "bg": "rgb(241, 248, 241)",
+   "cr": 4.89
+  },
+  "after-indigo": {
+   "color": "rgb(93, 103, 132)",
+   "bg": "rgb(245, 246, 255)",
+   "cr": 5.22
+  },
+  "after-slate": {
+   "color": "rgb(172, 178, 182)",
+   "bg": "rgb(46, 61, 68)",
+   "cr": 5.25
+  },
+  "after-executive": {
+   "color": "rgb(124, 135, 149)",
+   "bg": "rgb(11, 26, 44)",
+   "cr": 4.8
+  },
+  "after-dark": {
+   "color": "rgb(148, 148, 148)",
+   "bg": "rgb(37, 37, 37)",
+   "cr": 5.05
+  }
+ },
+ "D06": {
+  "before-ko": {
+   "btnRows": 1,
+   "barH": 77
+  },
+  "before-en": {
+   "btnRows": 1,
+   "barH": 77
+  },
+  "before-ja": {
+   "btnRows": 1,
+   "barH": 77
+  },
+  "before-zh": {
+   "btnRows": 1,
+   "barH": 77
+  },
+  "after-ko": {
+   "btnRows": 1,
+   "barH": 75
+  },
+  "after-en": {
+   "btnRows": 1,
+   "barH": 75
+  },
+  "after-ja": {
+   "btnRows": 1,
+   "barH": 75
+  },
+  "after-zh": {
+   "btnRows": 1,
+   "barH": 75
+  }
+ }
+}

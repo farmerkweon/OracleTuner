@@ -15,17 +15,21 @@
  */
 
 import { $, el, esc, toast, errText, fmtDate, debounce, copyToClipboard, withBusy } from '../util.js';
-import { t } from '../i18n.js';
+import { t, getLang } from '../i18n.js';
 import { icon } from '../icons.js';
 import { api, session } from '../api.js';
 
 let ctx = { getSql: null, setSql: null, setDoc: null, gotoWorkbench: null };
 
 /**
- * 데모 예제에 붙는 폴더(첫 태그) 이름. `demo/02-examples.js` 가 `tags: ['데모']` 로 심는다.
- * 로케일과 무관한 고정 문자열이라 여기서도 상수로 고정한다.
+ * 데모 예제에 붙는 폴더(첫 태그) 이름 — <b>로케일별 표기 전부</b>.
+ *
+ * <p>태그는 표시 문자열이 아니라 저장된 데이터라서 화면에서 번역할 수 없다.
+ * 대신 설치할 때 그 시점 언어의 이름으로 심는다(server/demo-install.js 의 DEMO_FOLDER).
+ * 여기서는 "어느 언어로 깔렸든 데모 폴더로 알아본다"만 하면 되므로 집합으로 둔다.
+ * 예전에 한국어로 깔아 둔 사용자의 '데모' 폴더도 그대로 맨 아래로 간다.
  */
-const DEMO_FOLDER = '데모';
+const DEMO_FOLDERS = new Set(['데모', 'Demo', 'デモ', '演示']);
 
 /**
  * 폴더(트리 그룹) 정렬 규칙 — <b>단일 진실의 출처</b>.
@@ -39,7 +43,7 @@ const DEMO_FOLDER = '데모';
  */
 function compareFolders(a, b) {
   const rank = (name) => {
-    if (name === DEMO_FOLDER) return 2;             // 항상 맨 아래
+    if (DEMO_FOLDERS.has(name)) return 2;           // 항상 맨 아래
     if (name === t('sqls.uncategorized')) return 1; // 그 위
     return 0;                                       // 사용자 폴더
   };
@@ -47,6 +51,19 @@ function compareFolders(a, b) {
   const rb = rank(b);
   if (ra !== rb) return ra - rb;
   return a.localeCompare(b);
+}
+
+/**
+ * 폴더 안 항목 정렬.
+ *
+ * D10(QA-SWEEP): 최종수정일 역순이라 번호를 매긴 예제가 ⑧ → 9) → ② → ③ … 순으로 나와
+ * "정렬이 뒤죽박죽" 이라는 보고가 나왔다. 폴더는 이미 이름순인데 항목만 날짜순이어서
+ * 목록 전체에 규칙이 없어 보인 것이다. 제목순으로 맞추고, numeric 을 켜서
+ * "예제 2" 가 "예제 10" 보다 앞에 오게 한다.
+ */
+function compareLeaves(a, b) {
+  return String(a.title || a.name || '').localeCompare(
+    String(b.title || b.name || ''), undefined, { numeric: true, sensitivity: 'base' });
 }
 let lastSide = 'before';
 let selected = null;          // 현재 미리보기 중인 스니펫 이름
@@ -132,7 +149,7 @@ function renderTree(items) {
   const folders = [...groups.keys()].sort(compareFolders);
 
   for (const folder of folders) {
-    const rows = groups.get(folder).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    const rows = groups.get(folder).sort(compareLeaves);
     const collapsed = false;
     const node = el('div', { class: 'tree-folder' });
     const head = el('div', { class: 'tree-folder-head' }, [
@@ -297,8 +314,9 @@ async function installDemo(btn) {
   if (!confirm(t('sqls.demoConfirm'))) return;
   await withBusy(btn, async () => {
     try {
-      const r = await api.installDemo();
-      toast(t('sqls.demoInstalled', { n: r.installed }), 'ok', 6000);
+      // 화면 언어로 설치한다 — 이름·설명이 그 언어로 저장된다(server/demo-install.js localize).
+      const r = await api.installDemo(getLang());
+      toast(t('sqls.demoInstalled', { n: r.installed, folder: t('sqls.demoFolder') }), 'ok', 6000);
       refreshPage();
       document.dispatchEvent(new CustomEvent('ot:snippets-changed'));
     } catch (e) {
@@ -372,7 +390,7 @@ export async function renderDock(hostEl) {
     }
     const folders = [...groups.keys()].sort(compareFolders);
     for (const folder of folders) {
-      const rows = groups.get(folder).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      const rows = groups.get(folder).sort(compareLeaves);
       const node = el('div', { class: 'tree-folder' });
       const head = el('div', { class: 'tree-folder-head' }, [
         el('span', { class: 'tree-caret', text: '▾' }),

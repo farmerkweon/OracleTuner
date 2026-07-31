@@ -817,27 +817,21 @@ route('DELETE', '/api/snippets/:name', async ({ params, body, query }) => ({
 
 route('GET', '/api/snippet-scopes', async () => ({ scopes: snippets.scopes() }));
 
-/** demo/ 폴더의 항목들(설치용). */
-function demoItems() {
-  const { readSqlFile } = require('./demo-install');
-  const demoDir = path.join(P.root, 'demo');
-  const items = [readSqlFile('01-setup.sql')];
-  for (const ex of require(path.join(demoDir, '02-examples.js'))) {
-    items.push({ name: ex.name, tags: ex.tags, desc: ex.desc, sql: ex.sql });
-  }
-  items.push(readSqlFile('09-drop.sql'));
-  return items;
-}
-
 /**
  * 샘플(데모) 예제를 현재 접속의 SQL 목록에 설치한다.
  * 튜닝 효과를 실제로 확인해 볼 수 있는 예제 세트 — demo/ 폴더가 원본이다.
+ *
+ * <p>이름·설명·주석은 <b>요청의 lang(화면 언어)</b> 으로 저장한다. 화면 언어는
+ * 브라우저 localStorage(`ot.lang`)에 있으므로 서버가 알 수 없어 클라이언트가 실어 보낸다.
+ * 없으면 설정의 ui.locale, 그것도 없으면 ko.
  */
 route('POST', '/api/snippets/install-demo', async ({ body }) => {
   const scope = snippetScope(body);
+  const { demoItems } = require('./demo-install');
+  const lang = body.lang || (config.load().ui || {}).locale || 'ko';
   let items;
   try {
-    items = demoItems();
+    items = demoItems(lang);
   } catch (e) {
     throw new ApiError(`샘플 예제를 읽지 못했습니다: ${e.message}`, 500);
   }

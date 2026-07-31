@@ -19,11 +19,29 @@ const log = logger.forComponent('snippet-store');
 /** 공용 스코프 — 어느 접속에서든 함께 보이는 SQL(데모·공통 쿼리 등). */
 const SHARED = '_shared';
 
-/** 파일명으로 쓸 수 없는 문자를 정리한다(경로 탈출 방지 포함). */
+/**
+ * <b>저장 키</b>(파일명·URL 경로에 쓰는 식별자)를 만든다. 경로 탈출 방지 포함.
+ *
+ * <p>⚠ 이 값은 <b>화면에 보여 주는 이름이 아니다.</b> 윈도우 파일명 금지문자(`* / : ? " < > |`)를
+ * `_` 로 바꾸므로 `SELECT *` 가 `SELECT _` 가 되고 `순서/방식` 이 `순서_방식` 이 된다.
+ * 표시명은 {@link displayTitle} 이 만드는 `title` 이고 원문을 그대로 지킨다.
+ * (QA-SWEEP D04 — 새니타이즈가 표시명까지 먹어 예제의 뜻이 망가지던 결함)
+ */
 function safeName(name) {
   const s = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '_').replace(/\.+$/, '').slice(0, 120);
   if (!s) throw new Error('스니펫 이름이 비어 있습니다.');
   return s;
+}
+
+/**
+ * <b>표시 이름</b>. `*` 와 `/` 를 포함해 사용자가 적은 그대로 지킨다 — `SELECT *` 는 SQL 의
+ * 핵심 표기라 훼손되면 예제의 뜻 자체가 망가진다.
+ *
+ * <p>다만 파일 저장 형식이 `--@ name: …` <b>한 줄</b> 헤더라서(repo/json-file.js) 줄바꿈·제어문자만
+ * 공백으로 눕힌다. 그 외에는 아무것도 바꾸지 않는다.
+ */
+function displayTitle(name) {
+  return String(name || '').replace(/[\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
 }
 
 /**
@@ -100,12 +118,21 @@ function getOne(scope, name) {
   return { name: meta.name, title: meta.title || meta.name, tags: meta.tags || [], desc: meta.desc || '', sql: meta.sql || '', updatedAt: meta.updatedAt };
 }
 
-/** 저장(신규/덮어쓰기). 이름을 바꾸면 옛 파일은 지운다. */
+/**
+ * 저장(신규/덮어쓰기). 이름을 바꾸면 옛 파일은 지운다.
+ *
+ * <p><b>표시명(title)과 저장 키(name)를 분리한다</b> — 원문은 title 에 그대로 남고,
+ * 파일명·URL 경로에 쓰는 키만 안전하게 깎는다. 예전에는 title 에도 깎인 이름을 넣어
+ * `④ SELECT * (…)` 가 목록에 `④ SELECT _ (…)` 로 뜨고 `순서/방식` 이 `순서_방식` 이 됐다
+ * (QA-SWEEP D04). 저장소(repo/json-file.js·sqlite.js)는 이미 두 값을 따로 보관하고 있었고,
+ * 화면도 이미 title 을 그린다(library.js) — 여기 한 줄이 유일한 훼손 지점이었다.
+ */
 function save(scope, input) {
   const s = safeScope(scope);
-  const name = safeName(input.name || input.title);
+  const raw = input.name || input.title;
+  const name = safeName(raw);
   const rec = {
-    title: name,
+    title: displayTitle(raw) || name,
     tags: Array.isArray(input.tags) ? input.tags : String(input.tags || '').split(',').map((x) => x.trim()).filter(Boolean),
     desc: input.desc || '',
     sql: input.sql || '',
@@ -117,8 +144,8 @@ function save(scope, input) {
   if (input.oldName && safeName(input.oldName) !== name) {
     try { snippetRepo.remove(s, safeName(input.oldName)); } catch (e) { /* 없으면 무시 */ }
   }
-  log.info(`저장 스니펫 [${s}] "${name}" (${rec.sql.length} chars)`);
-  return { name, title: name, scope: s };
+  log.info(`저장 스니펫 [${s}] "${rec.title}" (키: ${name}, ${rec.sql.length} chars)`);
+  return { name, title: rec.title, scope: s };
 }
 
 /** 삭제. 접속 스코프에 없으면 공용에서 지운다(목록에 보이는 것을 지울 수 있어야 하므로). */

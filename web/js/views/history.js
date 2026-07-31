@@ -5,7 +5,7 @@
  * 여기서 워크벤치로 다시 불러오거나(이어서 작업), Markdown/SQL 로 내보낼 수 있다.
  */
 
-import { $, $$, el, esc, toast, errText, fmtMs, fmtPct, fmtDate, fmtNum, logMsg } from '../util.js';
+import { $, $$, el, esc, toast, errText, fmtMs, fmtPct, fmtDate, fmtNum, logMsg, debounce } from '../util.js';
 import { t } from '../i18n.js';
 import { api } from '../api.js';
 import { makeGrid } from '../gridkit.js';
@@ -25,6 +25,10 @@ export function initHistory(opts = {}) {
   onLoadToWorkbench = opts.onLoad || (() => {});
 
   $('#btn-hist-refresh').addEventListener('click', refresh);
+  // D01(QA-SWEEP): Enter 를 눌러야만 걸러졌다. SQL 목록 검색(#sqls-search)은 타이핑 즉시 걸러지는데
+  // 여기만 달라서 "검색이 고장났다"고 읽힌다. 같은 방식(debounce 200ms)으로 맞춘다.
+  // Enter 는 즉시 조회로 남겨 둔다(디바운스를 기다리지 않게).
+  $('#hist-q').addEventListener('input', debounce(() => refresh(), 200));
   $('#hist-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') refresh(); });
   $('#hist-status').addEventListener('change', refresh);
 }
@@ -100,7 +104,7 @@ function renderGrid(items) {
     masterDetail: {
       enabled: true,
       height: 300,
-      heightMode: 'auto',
+      heightMode: 'fixed', // D19 — 'auto' 는 무시되면서 내부 설계문서 경고만 찍힌다
       expandMultiple: false,
       renderer: (row, hostEl) => renderDetail(row, hostEl)
     }
@@ -142,11 +146,11 @@ async function renderDetail(row, hostEl) {
       ${rec.note ? `<div class="dp-block"><div class="dp-label">${esc(t('hist.memo'))}</div><div>${esc(rec.note)}</div></div>` : ''}
       <div class="dp-block">
         <div class="dp-label">${esc(t('plan.before'))}</div>
-        <pre class="sqled-highlight" style="position:static;padding:8px 10px;background:#fafbfc;border:1px solid var(--border);border-radius:6px;max-height:180px;overflow:auto;">${hl((rec.before || {}).sql)}</pre>
+        <pre class="sqled-highlight" style="position:static;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;max-height:180px;overflow:auto;">${hl((rec.before || {}).sql)}</pre>
       </div>
       ${(rec.after || {}).sql ? `<div class="dp-block">
         <div class="dp-label">${esc(t('plan.after'))}</div>
-        <pre class="sqled-highlight" style="position:static;padding:8px 10px;background:#f7fbf8;border:1px solid var(--border);border-radius:6px;max-height:180px;overflow:auto;">${hl(rec.after.sql)}</pre>
+        <pre class="sqled-highlight" style="position:static;padding:8px 10px;background:var(--ok-soft);border:1px solid var(--border);border-radius:6px;max-height:180px;overflow:auto;">${hl(rec.after.sql)}</pre>
       </div>` : ''}
       <div class="dp-block">
         <button class="btn btn-sm btn-primary" data-load>${esc(t('hist.loadToWb'))}</button>
@@ -232,7 +236,9 @@ function guessTitle(sql, tk) {
   const a = tk ? tk.analyze(sql) : null;
   const tables = a && a.tables && a.tables.length ? a.tables.map((x) => x.name).filter((n) => n !== '(inline view)').slice(0, 2).join(', ') : '';
   const type = a ? a.type : 'SQL';
-  const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  // D08(QA-SWEEP): toISOString() 은 UTC 라 한국에서 9시간 전으로 찍혔다(23:05 에 눌렀는데 14:05).
+  // 같은 앱의 이력 목록·메시지 로그는 이미 현지시각이라 앱 안에서 값이 어긋났다. fmtDate 로 통일한다.
+  const stamp = fmtDate(new Date().toISOString());
   return tables ? t('hist.titleGuess', { tables, type, stamp }) : t('hist.titleGuessNoTable', { type, stamp });
 }
 

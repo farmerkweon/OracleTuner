@@ -1,0 +1,102 @@
+{
+  "ko": {
+    "clicked": "OK",
+    "names": [
+      "③ NOT IN 서브쿼리",
+      "④ SELECT * (불필요한 컬럼)",
+      "⑤ NVL 로 감싼 조건",
+      "⑥ UNION (불필요한 중복 제거)",
+      "⑦ ROWNUM + ORDER BY (결과가 틀림)",
+      "⑧ 조인 — 순서/방식 경합",
+      "데모 9) 정리 (DROP)",
+      "① 날짜 함수 조건 (인덱스 못 탐)",
+      "② 암시적 형변환 (문자 컬럼 = 숫자)",
+      "데모 1) 데이터 한번에 만들기",
+      "③ NOT IN 서브쿼리",
+      "④ SELECT * (불필요한 컬럼)",
+      "⑤ NVL 로 감싼 조건",
+      "⑥ UNION (불필요한 중복 제거)",
+      "⑦ ROWNUM + ORDER BY (결과가 틀림)",
+      "⑧ 조인 — 순서/방식 경합",
+      "데모 9) 정리 (DROP)",
+      "① 날짜 함수 조건 (인덱스 못 탐)",
+      "② 암시적 형변환 (문자 컬럼 = 숫자)",
+      "데모 1) 데이터 한번에 만들기"
+    ]
+  },
+  "en": {
+    "clicked": "OK",
+    "names": [
+      "Demo 9) Clean up (DROP)",
+      "⑤ Predicate wrapped in NVL",
+      "⑥ UNION (needless de-duplication)",
+      "⑦ ROWNUM + ORDER BY (wrong result)",
+      "⑧ Join — order/method contention",
+      "Demo 1) Create all data at once",
+      "① Function on a date column (index unusable)",
+      "② Implicit conversion (character column = number)",
+      "③ NOT IN subquery",
+      "④ SELECT * (unneeded columns)",
+      "Demo 9) Clean up (DROP)",
+      "⑤ Predicate wrapped in NVL",
+      "⑥ UNION (needless de-duplication)",
+      "⑦ ROWNUM + ORDER BY (wrong result)",
+      "⑧ Join — order/method contention",
+      "Demo 1) Create all data at once",
+      "① Function on a date column (index unusable)",
+      "② Implicit conversion (character column = number)",
+      "③ NOT IN subquery",
+      "④ SELECT * (unneeded columns)"
+    ]
+  },
+  "ja": {
+    "clicked": "OK",
+    "names": [
+      "① 日付関数の条件 (インデックスが使えない)",
+      "② 暗黙の型変換 (文字列列 = 数値)",
+      "③ NOT IN サブクエリ",
+      "④ SELECT * (不要な列)",
+      "⑤ NVL で包んだ条件",
+      "⑥ UNION (不要な重複排除)",
+      "⑦ ROWNUM + ORDER BY (結果が誤り)",
+      "⑧ 結合 — 順序/方式の競合",
+      "デモ 1) データを一括作成",
+      "デモ 9) 後片付け (DROP)",
+      "① 日付関数の条件 (インデックスが使えない)",
+      "② 暗黙の型変換 (文字列列 = 数値)",
+      "③ NOT IN サブクエリ",
+      "④ SELECT * (不要な列)",
+      "⑤ NVL で包んだ条件",
+      "⑥ UNION (不要な重複排除)",
+      "⑦ ROWNUM + ORDER BY (結果が誤り)",
+      "⑧ 結合 — 順序/方式の競合",
+      "デモ 1) データを一括作成",
+      "デモ 9) 後片付け (DROP)"
+    ]
+  },
+  "zh": {
+    "clicked": "OK",
+    "names": [
+      "⑤ 被 NVL 包裹的条件",
+      "⑥ UNION（多余的去重）",
+      "⑦ ROWNUM + ORDER BY（结果错误）",
+      "⑧ 连接 —— 顺序/方式的竞争",
+      "演示 9) 清理 (DROP)",
+      "① 日期函数条件（用不上索引）",
+      "② 隐式类型转换（字符列 = 数字）",
+      "③ NOT IN 子查询",
+      "④ SELECT *（多余的列）",
+      "演示 1) 一次性创建数据",
+      "⑤ 被 NVL 包裹的条件",
+      "⑥ UNION（多余的去重）",
+      "⑦ ROWNUM + ORDER BY（结果错误）",
+      "⑧ 连接 —— 顺序/方式的竞争",
+      "演示 9) 清理 (DROP)",
+      "① 日期函数条件（用不上索引）",
+      "② 隐式类型转换（字符列 = 数字）",
+      "③ NOT IN 子查询",
+      "④ SELECT *（多余的列）",
+      "演示 1) 一次性创建数据"
+    ]
+  }
+}

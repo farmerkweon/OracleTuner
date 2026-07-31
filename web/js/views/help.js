@@ -27,7 +27,9 @@ const TABS = [
   { key: 'about', label: { ko: '정보', en: 'About', ja: '情報', zh: '关于' } }
 ];
 
-let activeTab = 'about'; // 정보 탭을 먼저 펼친다
+// D15(QA-SWEEP): 처음 여는 사용자에게 후원 QR(정보)부터 보여 주고 있었다. 도움말의 첫 화면은
+// 첫 탭인 [시작하기] 여야 한다. (openCapabilities 로 들어오면 아래에서 'caps' 로 바꾼다.)
+let activeTab = 'start';
 
 export function initHelp() {
   $('#btn-help').addEventListener('click', open);

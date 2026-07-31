@@ -233,6 +233,51 @@ namespace OracleTuner
         {
             get { return Path.Combine(LogsDir, "tray.log"); }
         }
+
+        /// <summary>
+        /// server/index.js 가 실제로 듣고 있는 포트를 적어두는 파일(runtime.json).
+        /// 포트 자동 폴백(D-03) 때문에 settings.json 의 값과 실제 포트가 다를 수 있다.
+        /// 트레이는 이 파일을 읽어 툴팁·[열기] 주소를 실제 포트에 맞춘다.
+        /// </summary>
+        public static string RuntimeFile
+        {
+            get { return Path.Combine(Path.Combine(DataRoot, "data"), "runtime.json"); }
+        }
+
+        /// <summary>
+        /// ★ D-01 — 이 설치본을 다른 설치본과 구분하는 식별자(앱 폴더 경로에서 만든다).
+        ///
+        /// 뮤텍스·이벤트 이름에 그대로 붙일 것이므로 다음 두 조건을 만족해야 한다:
+        ///   ① 같은 폴더면 항상 같은 값  ② 커널 오브젝트 이름에 쓸 수 있는 문자만
+        /// 경로에는 역슬래시·공백·한글이 들어간다. 역슬래시는 커널 네임스페이스 구분자라
+        /// 그대로 쓰면 이름이 통째로 깨지고(예: Local\C:\APPS\...), 한글은 문화권에 따라
+        /// 대소문자 접기가 달라질 수 있다. 그래서 경로를 해시해 16진수로만 남긴다.
+        ///
+        /// 해시는 FNV-1a 64비트를 직접 구현한다 — 폐쇄망 빌드라 참조 어셈블리를 늘리지
+        /// 않는 편이 안전하다(build-tray.js 는 System/System.Core/Drawing/Forms 만 참조).
+        /// 암호학적 강도가 필요한 용도가 아니다(경로 구분용).
+        /// </summary>
+        public static readonly string ScopeId = ComputeScopeId(AppDir);
+
+        internal static string ComputeScopeId(string dir)
+        {
+            string norm;
+            try { norm = Path.GetFullPath(dir); }
+            catch (Exception) { norm = dir == null ? "" : dir; }
+            norm = norm.TrimEnd('\\', '/');
+            // 윈도우 파일시스템은 대소문자를 구분하지 않는다. 같은 폴더를 다른 대소문자로
+            // 실행해도 같은 값이 나와야 하므로 불변 문화권으로 접는다(터키어 I 문제 회피).
+            norm = norm.ToLowerInvariant();
+
+            byte[] bytes = Encoding.UTF8.GetBytes(norm);
+            ulong h = 14695981039346656037UL;          // FNV offset basis
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                h ^= bytes[i];
+                h *= 1099511628211UL;                  // FNV prime
+            }
+            return h.ToString("x16", CultureInfo.InvariantCulture);
+        }
     }
 
     /// <summary>
@@ -272,6 +317,26 @@ namespace OracleTuner
             if (!int.TryParse(m.Groups[1].Value, out p)) return DefaultPort;
             if (p < 1 || p > 65535) return DefaultPort;
             return p;
+        }
+
+        /// <summary>
+        /// data/runtime.json 에서 **실제로 듣고 있는** 포트와 그 프로세스 pid 를 읽는다.
+        ///
+        /// D-03 의 포트 자동 폴백 때문에 settings.json 의 값(또는 기본 7070)과 실제 포트가
+        /// 다를 수 있다. 그때 트레이 툴팁·[열기] 주소가 옛 포트를 가리키면 사용자는 빈
+        /// 페이지를 보게 된다. server/index.js 가 listen 직후 이 파일을 쓴다.
+        /// </summary>
+        public static bool TryReadRuntime(out int pid, out int port)
+        {
+            pid = -1; port = -1;
+            string txt = ReadAllTextSafe(Paths.RuntimeFile);
+            if (txt == null) return false;
+            Match mp = Regex.Match(txt, "\"port\"\\s*:\\s*(\\d{1,5})");
+            if (!mp.Success || !int.TryParse(mp.Groups[1].Value, out port)) return false;
+            if (port < 1 || port > 65535) { port = -1; return false; }
+            Match mi = Regex.Match(txt, "\"pid\"\\s*:\\s*(\\d{1,10})");
+            if (mi.Success) int.TryParse(mi.Groups[1].Value, out pid);
+            return true;
         }
 
         /// <summary>ui.locale. 없으면 null(호출자가 시스템 문화권으로 폴백한다).</summary>
@@ -506,16 +571,82 @@ namespace OracleTuner
         /// <summary>포트가 응답하는가(127.0.0.1 로컬 연결이라 실패 판정이 즉시 난다).</summary>
         public bool PortResponds()
         {
+            return Probe(Port);
+        }
+
+        private static bool Probe(int port)
+        {
+            if (port < 1 || port > 65535) return false;
             try
             {
                 using (TcpClient c = new TcpClient())
                 {
-                    IAsyncResult ar = c.BeginConnect("127.0.0.1", Port, null, null);
+                    IAsyncResult ar = c.BeginConnect("127.0.0.1", port, null, null);
                     bool ok = ar.AsyncWaitHandle.WaitOne(400, false);
                     if (!ok) return false;
                     c.EndConnect(ar);
                     return c.Connected;
                 }
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>
+        /// 이 폴더의 서버가 그 포트에 있다는 것이 runtime.json 으로 확인됐는가.
+        ///
+        /// ★ 이 구분이 왜 필요한가 (D-01 의 작은 재발 방지)
+        ///   "포트 7070 이 응답한다"만으로 실행 중이라고 판정하면, **설치판이 7070 에서
+        ///   응답하는 동안 포터블 서버가 죽어 있어도** 포터블 트레이가 "실행 중"으로 보이고
+        ///   [열기]가 설치판 화면을 연다. 포터블을 쓰고 있다고 믿게 만드는 바로 그 사고다.
+        ///   runtime.json 은 각자의 데이터 폴더에 있으므로 그 자체가 범위 증명이 된다.
+        /// </summary>
+        public bool PortConfirmed { get; private set; }
+
+        /// <summary>runtime.json 이 아예 없는가(옛 서버·기록 실패 → 예전 판정으로 폴백).</summary>
+        public bool RuntimeFileMissing
+        {
+            get { return !File.Exists(Paths.RuntimeFile); }
+        }
+
+        /// <summary>
+        /// 서버가 실제로 잡은 포트를 data/runtime.json 에서 읽어 따라간다(D-03 자동 폴백 대응).
+        ///
+        /// 아무 파일이나 믿으면 안 된다 — 지난 실행의 찌꺼기일 수 있다. 그래서 둘 중 하나일 때만 받아들인다:
+        ///   ① 그 파일의 pid 가 **우리가 띄운 자식**의 pid 다 (가장 확실)
+        ///   ② 자식이 없는데(= 사용자가 .bat 으로 따로 띄운 경우) 그 pid 가 살아 있고 포트도 응답한다
+        /// </summary>
+        public void SyncRuntimePort()
+        {
+            int rpid, rport;
+            if (!Settings.TryReadRuntime(out rpid, out rport)) { PortConfirmed = false; return; }
+
+            int childPid = -1;
+            lock (_gate)
+            {
+                try { if (_proc != null && !_proc.HasExited) childPid = _proc.Id; }
+                catch (Exception) { }
+            }
+
+            bool adopt = (childPid > 0 && rpid == childPid)
+                      || (childPid <= 0 && rpid > 0 && PidAlive(rpid) && Probe(rport));
+            if (!adopt) { PortConfirmed = false; return; }
+
+            if (rport != Port)
+            {
+                Log.Info(string.Format("실제 기동 포트 반영 {0} → {1} (runtime.json pid={2})", Port, rport, rpid));
+                Port = rport;
+            }
+            PortConfirmed = true;
+        }
+
+        private static bool PidAlive(int pid)
+        {
+            try
+            {
+                Process p = Process.GetProcessById(pid);
+                bool alive = !p.HasExited;
+                p.Dispose();
+                return alive;
             }
             catch (Exception) { return false; }
         }
@@ -543,6 +674,11 @@ namespace OracleTuner
 
                 // 포트를 매번 다시 읽는다 — 사용자가 설정을 바꿨을 수 있다.
                 Port = Settings.ReadPort();
+
+                // 지난 실행이 강제 종료돼 남은 runtime.json 을 지우고 시작한다.
+                // (남아 있으면 새 서버가 쓰기 전에 옛 포트를 잠깐 따라갈 수 있다.)
+                try { if (File.Exists(Paths.RuntimeFile)) File.Delete(Paths.RuntimeFile); }
+                catch (Exception) { }
 
                 if (!File.Exists(Paths.NodeExe))
                 {
@@ -794,18 +930,27 @@ namespace OracleTuner
         {
             if (_quitting) return;
 
+            // 서버가 포트를 자동으로 옮겼을 수 있다. 상태를 보기 전에 실제 포트부터 맞춘다.
+            _server.SyncRuntimePort();
+
             ServerState s;
             bool child = _server.ChildAlive;
             bool port  = _server.PortResponds();
+            bool mine  = _server.PortConfirmed;                       // runtime.json 으로 확인된 우리 서버
+            bool legacy = _server.RuntimeFileMissing;                 // 아직 안 썼거나 옛 서버 — 예전 판정으로
 
-            if (port) s = ServerState.Running;
+            // "포트가 응답한다"만으로 실행 중이라고 하지 않는다. 그 응답이 **다른 폴더의
+            // Oracle Tuner** 일 수 있기 때문이다(설치판 7070). 우리 것이라는 확인이 있거나,
+            // runtime.json 자체가 없어 확인할 방법이 없을 때만 예전 판정으로 돌아간다.
+            if (port && (mine || (child && legacy))) s = ServerState.Running;
             else if (child) s = ServerState.Starting;   // 떴지만 아직 포트를 안 열었다
             else s = ServerState.Stopped;
 
             if (s != _state)
             {
-                Log.Info(string.Format("상태 변화 {0} → {1} (자식={2}, 포트{3}={4})",
-                    _state, s, child ? "생존" : "없음", _server.Port, port ? "응답" : "무응답"));
+                Log.Info(string.Format("상태 변화 {0} → {1} (자식={2}, 포트{3}={4}, 확인={5})",
+                    _state, s, child ? "생존" : "없음", _server.Port, port ? "응답" : "무응답",
+                    mine ? "runtime.json" : (legacy ? "없음(폴백)" : "미확인")));
                 _state = s;
             }
             ApplyState();
@@ -950,12 +1095,28 @@ namespace OracleTuner
     {
         // 이름 있는 커널 오브젝트. Local\ 네임스페이스라 같은 로그온 세션 안에서만 공유된다
         // (여러 사용자가 각자 쓰는 터미널 서버 환경에서 서로를 죽이지 않게).
-        private const string MutexName    = "Local\\OracleTunerTray.Instance";
-        private const string EvtOpenName  = "Local\\OracleTunerTray.Open";
-        private const string EvtQuitName  = "Local\\OracleTunerTray.Quit";
+        //
+        // ★ D-01 (2026-07-31 QA-PORTABLE) — 이름에 **설치 위치별 식별자**를 붙인다.
+        //
+        //   고정 이름("Local\OracleTunerTray.Instance")을 쓰던 때의 사고:
+        //     설치판(C:\APPS\Oracle Tuner)이 트레이에 떠 있는 상태에서 포터블
+        //     OracleTuner.exe 를 더블클릭하면 → 같은 뮤텍스라 "중복 실행"으로 판정 →
+        //     포터블은 즉시 종료되고 **설치판 창이 대신 열렸다.** 포터블 서버는 뜨지도
+        //     않는데 사용자는 포터블을 쓰고 있다고 믿는다.
+        //     더 위험한 것은 신호 쪽이었다: 포터블에 보낸 --quit/--stop 이 **설치판을**
+        //     껐다.
+        //
+        //   그래서 뮤텍스와 네 개의 이벤트 **전부**에 같은 범위 규칙(Paths.ScopeId =
+        //   앱 폴더 경로 해시)을 적용한다. 규칙이 하나라도 어긋나면 "중복은 막았는데
+        //   신호는 남의 인스턴스로 가는" 최악의 상태가 된다.
+        //     · 같은 폴더  → 같은 이름 → 중복 실행 방지·신호 전달 그대로 동작
+        //     · 다른 폴더  → 다른 이름 → 서로 완전히 독립
+        private static readonly string MutexName    = "Local\\OracleTunerTray." + Paths.ScopeId + ".Instance";
+        private static readonly string EvtOpenName  = "Local\\OracleTunerTray." + Paths.ScopeId + ".Open";
+        private static readonly string EvtQuitName  = "Local\\OracleTunerTray." + Paths.ScopeId + ".Quit";
         // 진단/검증용 — 메뉴의 '시작'/'정지'와 같은 핸들러를 스크립트에서 부를 수 있게 한다.
-        private const string EvtStartName = "Local\\OracleTunerTray.Start";
-        private const string EvtStopName  = "Local\\OracleTunerTray.Stop";
+        private static readonly string EvtStartName = "Local\\OracleTunerTray." + Paths.ScopeId + ".Start";
+        private static readonly string EvtStopName  = "Local\\OracleTunerTray." + Paths.ScopeId + ".Stop";
 
         [STAThread]
         private static int Main(string[] rawArgs)
@@ -995,7 +1156,10 @@ namespace OracleTuner
                 else
                 {
                     SignalEvent(EvtOpenName);
-                    Log.Info("중복 실행 감지 — 기존 인스턴스에 '열기'를 요청하고 종료합니다.");
+                    // ★ 어느 범위에서 중복으로 판정했는지 반드시 남긴다. D-01 때는 이 한 줄이
+                    //   유일한 흔적이었는데 범위 정보가 없어서 "설치판과 겹친 것"을 알 수 없었다.
+                    Log.Info(string.Format("중복 실행 감지(같은 앱폴더 {0}, scope={1}) — 기존 인스턴스에 '열기'를 요청하고 종료합니다.",
+                        Paths.AppDir, Paths.ScopeId));
                 }
                 return 0;
             }
@@ -1017,8 +1181,8 @@ namespace OracleTuner
             Strings.Locale = ResolveLocale();
 
             Log.Info("──────────────────────────────────────────────");
-            Log.Info(string.Format("트레이 기동 — 로케일={0} 데이터루트={1} 앱폴더={2}",
-                Strings.Locale, Paths.DataRoot, Paths.AppDir));
+            Log.Info(string.Format("트레이 기동 — 로케일={0} 데이터루트={1} 앱폴더={2} scope={3}",
+                Strings.Locale, Paths.DataRoot, Paths.AppDir, Paths.ScopeId));
             // ★ 로케일이 실제로 적용됐는지 화면 없이 증명하기 위해 메뉴 문자열을 그대로 남긴다.
             //   (검증 항목 7 — 스크린샷 없이 로그로 4개 로케일을 확인할 수 있어야 한다.)
             Log.Info("메뉴 문자열: " + Strings.MenuDump());
@@ -1120,11 +1284,17 @@ namespace OracleTuner
         ///   알고 싶은 것은 "그 프로세스가 사라졌는가" 이므로 프로세스를 직접 본다.
         ///   제거 스크립트가 이 프로세스의 종료를 기다렸다가 파일을 지우므로, 여기서
         ///   정확히 판정하는 것이 곧 "파일 잠금이 풀린 뒤에 지운다"는 보장이 된다.
+        ///
+        /// ⚠ D-01 후속 — 이름(OracleTuner)만으로 세면 **다른 폴더의 인스턴스까지 센다.**
+        ///   설치판 트레이가 떠 있으면 포터블 --quit 이 8초를 꽉 채우고 "사라지지 않았습니다"
+        ///   경고를 남긴다(실제로는 잘 죽었는데도). 그래서 실행 파일 경로가 나와 같은
+        ///   프로세스만 센다 — 뮤텍스 범위 규칙과 같은 기준(앱 폴더)이다.
         /// </summary>
         private static void WaitForInstanceGone(int timeoutMs)
         {
             int self = Process.GetCurrentProcess().Id;
             string myName = Path.GetFileNameWithoutExtension(Application.ExecutablePath);
+            string myExe  = Application.ExecutablePath;
             int waited = 0;
             while (waited < timeoutMs)
             {
@@ -1134,7 +1304,7 @@ namespace OracleTuner
                     Process[] list = Process.GetProcessesByName(myName);
                     for (int i = 0; i < list.Length; i++)
                     {
-                        try { if (list[i].Id != self) anyOther = true; }
+                        try { if (list[i].Id != self && IsSameImage(list[i], myExe)) anyOther = true; }
                         catch (Exception) { }
                         try { list[i].Dispose(); } catch (Exception) { }
                     }
@@ -1152,7 +1322,25 @@ namespace OracleTuner
                 Thread.Sleep(200);
                 waited += 200;
             }
-            Log.Warn("--quit 후 " + timeoutMs + "ms 안에 기존 인스턴스가 사라지지 않았습니다.");
+            Log.Warn("--quit 후 " + timeoutMs + "ms 안에 같은 폴더의 기존 인스턴스가 사라지지 않았습니다.");
+        }
+
+        /// <summary>
+        /// 그 프로세스가 **나와 같은 실행 파일**(같은 설치본)인가.
+        ///
+        /// MainModule 은 권한이 모자라면(다른 사용자 세션, 상승된 프로세스) 예외를 던진다.
+        /// 그때는 "내 것이 아니다"로 본다 — 남의 인스턴스를 기다리다 시간을 버리는 쪽이
+        /// 더 나쁘고, 우리가 방금 신호를 보낸 상대는 같은 사용자·같은 폴더의 프로세스라
+        /// 정상 경로에서는 항상 읽힌다.
+        /// </summary>
+        private static bool IsSameImage(Process p, string myExe)
+        {
+            try
+            {
+                string f = p.MainModule.FileName;
+                return string.Equals(f, myExe, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception) { return false; }
         }
 
         /// <summary>

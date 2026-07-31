@@ -19,8 +19,12 @@ const config = require('./config');
 const api = require('./api');
 const bridge = require('./bridge');
 const logger = require('./logger');
+const portUtils = require('./port-utils');
 
 const log = logger.forComponent('server');
+
+/** 서버가 실제로 잡은 포트를 적어두는 파일. 트레이 런처가 이 값을 읽어 툴팁·[열기]에 쓴다. */
+const RUNTIME_FILE = path.join(P.data, 'runtime.json');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -193,12 +197,111 @@ function openBrowser(url) {
   });
 }
 
+/**
+ * 어느 포트로 뜰 것인가, 그리고 그 포트를 **사용자가 직접 고른 것인가**.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * D-03 (2026-07-31 QA-PORTABLE) 의 판단 근거
+ *
+ *   증상: 설치판이 7070 에서 도는 중에 포터블을 실행하면 EADDRINUSE 로 즉시 죽었다.
+ *   설치판+포터블 동시 보유는 홍보글이 둘 다 링크하는 **정상 시나리오**다.
+ *
+ *   그래서 규칙을 둘로 나눈다:
+ *     · 사용자가 포트를 고르지 않았다(= 기본값 그대로) → 말없이 죽는 것보다 **뜨는 것**이
+ *       낫다. 다음 사용 가능한 포트로 옮겨 뜨되, 옮겼다는 사실을 화면·로그·트레이에
+ *       똑똑히 알린다.
+ *     · 사용자가 포트를 골랐다(--port / ORACLE_TUNER_PORT / settings.json 에 기본값과
+ *       다른 값) → **말없이 바꾸지 않는다.** 그 포트로 북마크·방화벽 규칙·역방향 프록시를
+ *       맞춰 놨을 수 있다. 실패시키되 무엇을 어떻게 고치는지 정확히 안내한다.
+ *
+ *   "settings.json 에 값이 적혀 있으면 곧 명시적 지정"으로 보지 않는 이유:
+ *   설정 화면에서 [저장]을 한 번만 눌러도 전체 스키마가 파일에 기록되어 server.port 가
+ *   7070 으로 적힌다(QA 항목 14 실측). 그것을 "사용자가 7070 을 고집한다"로 읽으면
+ *   포터블은 다시 못 뜬다. 그래서 **기본값과 다른 값일 때만** 명시적 지정으로 본다.
+ *
+ * @returns {{port:number, pinned:boolean, source:string}}
+ */
+function resolvePort(cfg, argv, env) {
+  const def = config.DEFAULTS.server.port;
+
+  const fromArg = (() => {
+    for (let i = 0; i < argv.length; i++) {
+      const a = argv[i];
+      let v = null;
+      if (a === '--port' && i + 1 < argv.length) v = argv[i + 1];
+      else if (a.startsWith('--port=')) v = a.slice('--port='.length);
+      if (v !== null) {
+        const n = Number(v);
+        if (Number.isInteger(n) && n > 0 && n < 65536) return n;
+      }
+    }
+    return null;
+  })();
+  if (fromArg !== null) return { port: fromArg, pinned: true, source: '--port' };
+
+  const fromEnv = Number(env.ORACLE_TUNER_PORT);
+  if (Number.isInteger(fromEnv) && fromEnv > 0 && fromEnv < 65536) {
+    return { port: fromEnv, pinned: true, source: 'ORACLE_TUNER_PORT' };
+  }
+
+  const fromCfg = Number(cfg.server && cfg.server.port);
+  if (Number.isInteger(fromCfg) && fromCfg > 0 && fromCfg < 65536 && fromCfg !== def) {
+    return { port: fromCfg, pinned: true, source: 'settings.json' };
+  }
+  return { port: def, pinned: false, source: '기본값' };
+}
+
+/** 포트 충돌 안내문. 안내가 가리키는 파일은 반드시 존재해야 한다(D-03). */
+function portBusyMessage(port, source) {
+  const ex = JSON.stringify({ server: { port: port === 7070 ? 7071 : port + 1 } }, null, 2);
+  return `포트 ${port} 가 이미 사용 중입니다(${source} 로 지정된 포트라 임의로 바꾸지 않았습니다).\n`
+    + `  · 다른 포트로 띄우려면 ${P.settingsFile} 를 열어 server.port 를 바꾼 뒤 다시 실행하세요:\n`
+    + ex.split('\n').map((l) => '      ' + l).join('\n') + '\n'
+    + `  · 한 번만 다른 포트로 띄우려면: OracleTuner.bat --port ${port === 7070 ? 7071 : port + 1}\n`
+    + `  · 그 포트를 쓰는 프로그램이 Oracle Tuner 자신일 수도 있습니다(설치판이 이미 떠 있는 경우).`;
+}
+
+/** 실제로 잡은 포트를 파일로 남긴다 — 트레이 런처가 툴팁·[열기] 주소에 쓴다. */
+function writeRuntimeFile(port, host, url) {
+  try {
+    const tmp = RUNTIME_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({
+      pid: process.pid, port, host, url, startedAt: logger.ts()
+    }, null, 2) + '\n', 'utf8');
+    fs.renameSync(tmp, RUNTIME_FILE);
+  } catch (e) {
+    log.warn(`runtime.json 기록 실패(트레이 툴팁이 옛 포트를 보일 수 있습니다): ${e.message}`);
+  }
+}
+
+/**
+ * 죽기 전에 로그 버퍼가 비워질 짧은 시간을 준다.
+ *
+ * logger 의 파일 스트림은 비동기라, 곧바로 process.exit 하면 그때까지 쌓인 기동·진단 로그가
+ * 통째로 사라진다(치명적 한 줄은 log.fatal 이 동기로 남기지만, 그 앞의 맥락도 필요하다).
+ */
+async function exitAfterFlush(code) {
+  await new Promise((r) => setTimeout(r, 250));
+  process.exit(code);
+}
+
+function removeRuntimeFile() {
+  try {
+    if (fs.existsSync(RUNTIME_FILE)) fs.unlinkSync(RUNTIME_FILE);
+  } catch (e) { /* 종료 경로에서 실패해도 할 일 없음 */ }
+}
+
 async function main() {
   P.ensureDirs();
+  // 안내 문구가 가리킬 설정 파일을 먼저 확보한다(없으면 기본값으로 만든다).
+  const ensured = config.ensureSettingsFile();
   const cfg = config.load(true);
 
   log.info('='.repeat(60));
   log.info(`Oracle Tuner 기동 — node ${process.version}, ${process.platform}`);
+  log.info(`실행 모드=${P.mode} 앱폴더=${P.root} 데이터루트=${P.dataRoot}`);
+  if (ensured.created) log.info(`설정 파일이 없어 기본값으로 만들었습니다: ${ensured.file}`);
+  else if (ensured.error) log.warn(`설정 파일을 만들지 못했습니다(계속 진행): ${ensured.error}`);
 
   // 진단 결과를 기동 로그에 남긴다 — 나중에 "왜 안 되지"를 로그만으로 판정할 수 있게
   const diag = config.diagnose();
@@ -221,29 +324,59 @@ async function main() {
     });
   });
 
-  const port = Number(cfg.server.port) || 7070;
   const host = cfg.server.host || '127.0.0.1';
+  const want = resolvePort(cfg, process.argv.slice(2), process.env);
+  let port = want.port;
 
   if (host !== '127.0.0.1' && host !== 'localhost') {
     log.warn(`외부 접근 가능한 주소(${host})로 바인딩합니다. 접속정보가 담긴 도구이므로 신뢰 구간에서만 사용하세요.`);
   }
 
+  // ── 포트 확보 (D-03) ───────────────────────────────────────────────────────
+  // listen 하기 전에 먼저 비어 있는지 본다. 미리 보면 "왜 옮겼는지"를 안내한 뒤 옮길 수
+  // 있다(EADDRINUSE 를 받고 나서는 이미 늦다). 검사와 실제 bind 사이의 아주 짧은 틈은
+  // 아래 server.on('error') 가 받아낸다.
+  const probeHost = host === '0.0.0.0' ? '127.0.0.1' : host;
+  if (!(await portUtils.isPortFree(port, probeHost))) {
+    if (want.pinned) {
+      log.fatal(portBusyMessage(port, want.source));
+      removeRuntimeFile();
+      await exitAfterFlush(1);
+      return;
+    }
+    const cands = [port].concat(portUtils.DEFAULT_CANDIDATES.filter((p) => p !== port));
+    const found = await portUtils.findAvailablePort(cands, probeHost);
+    if (!found.port) {
+      log.fatal(`포트 ${port} 를 비롯해 후보(${cands.join(', ')})가 모두 사용 중입니다.\n`
+        + `  ${P.settingsFile} 의 server.port 에 비어 있는 포트를 직접 지정한 뒤 다시 실행하세요.`);
+      removeRuntimeFile();
+      await exitAfterFlush(1);
+      return;
+    }
+    log.warn(`포트 ${port} 가 이미 사용 중이라 ${found.port} 로 바꿔 띄웁니다`
+      + `(기본 포트라 자동으로 옮겼습니다. 고정하려면 ${P.settingsFile} 의 server.port 를 지정하세요).`);
+    console.log('');
+    console.log(`  ※ 포트 ${port} 가 사용 중이라 ${found.port} 번으로 띄웁니다.`);
+    console.log(`     (다른 Oracle Tuner 가 이미 떠 있을 수 있습니다. 이 창의 주소를 쓰세요.)`);
+    port = found.port;
+  }
+
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
-      // 자동으로 다른 포트로 옮기지 않는다 — 사용자가 북마크한 주소가 말없이 바뀌면 더 혼란스럽다
-      // (FIX-SPEC-slice-H Phase 2). 대신 무엇이 문제고 어떻게 고치는지 명확히 안내한다.
-      // 설정 파일 위치는 실행 모드(개발/포터블/설치)에 따라 달라지므로 P.settingsFile 로 실제
-      // 경로를 그대로 보여준다(Phase 1 의 데이터 경로 분리와 짝이 맞아야 한다).
-      log.error(`포트 ${port} 가 이미 사용 중입니다. 다른 프로그램이 그 포트를 쓰고 있는지 확인하거나, `
-        + `${P.settingsFile} 파일의 server.port 값을 사용 가능한 포트로 바꾼 뒤 다시 실행하세요.`);
-      process.exit(1);
+      // 위에서 비어 있는 것을 확인하고도 여기 온 경우 = 검사와 bind 사이에 누가 채갔다.
+      log.fatal(portBusyMessage(port, want.pinned ? want.source : '자동 선택'));
+      removeRuntimeFile();
+      exitAfterFlush(1);
+      return;
     }
     log.error(`서버 오류: ${e.message}`);
   });
 
   server.listen(port, host, () => {
     const url = `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}/`;
-    log.info(`듣는 중: ${url}`);
+    log.info(`듣는 중: ${url} (요청 포트=${want.port}/${want.source}, 실제=${port})`);
+    // 실제 포트를 파일로 남긴다 — 트레이 툴팁·[열기]가 이 값을 따라온다.
+    writeRuntimeFile(port, host, url);
     console.log('');
     console.log(`  Oracle Tuner 준비됨 →  ${url}`);
     console.log('');
@@ -256,12 +389,24 @@ async function main() {
     try {
       await bridge.stop();
     } catch (e) { /* noop */ }
+    removeRuntimeFile();
     log.done('종료 완료');
     process.exit(0);
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('uncaughtException', (e) => log.error(`uncaughtException: ${e.stack || e.message}`));
+  process.on('exit', removeRuntimeFile);
+  // ★ D-07 — stdout 파이프가 끊긴(EPIPE) 상태에서 이 핸들러가 로거를 부르면, 그 로거가
+  //   다시 stdout 에 쓰면서 같은 예외를 또 일으킨다. 무한 반복에 빠지면 서버는 포트만
+  //   잡은 채 모든 요청에 응답하지 못하는 좀비가 된다(실측: 모든 /api/* 25초 타임아웃).
+  //   logger 가 콘솔 출력을 스스로 끊지만(logger.js), 여기서도 한 번 더 막는다.
+  process.on('uncaughtException', (e) => {
+    if (e && (e.code === 'EPIPE' || e.code === 'ERR_STREAM_DESTROYED')) {
+      logger.disableConsole(`uncaughtException ${e.code}`);
+      return;
+    }
+    log.error(`uncaughtException: ${e.stack || e.message}`);
+  });
   process.on('unhandledRejection', (e) => log.error(`unhandledRejection: ${(e && e.stack) || e}`));
 }
 

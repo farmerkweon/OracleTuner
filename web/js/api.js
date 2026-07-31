@@ -178,7 +178,8 @@ export const api = {
     return del(`/api/snippets/${encodeURIComponent(name)}${p}`);
   },
   snippetScopes: () => get('/api/snippet-scopes'),
-  installDemo: () => post('/api/snippets/install-demo', withSession({})),
+  // lang: 데모 예제의 이름·설명을 어느 언어로 저장할지. 화면 언어는 localStorage 에만 있어 서버가 모른다.
+  installDemo: (lang) => post('/api/snippets/install-demo', withSession({ lang })),
   runScript: (b) => post('/api/sql/run-script', withSession(b)),
   demoSetup: () => post('/api/demo/setup', withSession({}))
 };

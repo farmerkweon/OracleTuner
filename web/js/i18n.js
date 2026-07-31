@@ -136,8 +136,10 @@ const M = {
   'sqls.demoSetupRunning': { ko: '데모 데이터를 만들고 있습니다… (30만 건이라 1~2분 걸립니다)', en: 'Creating demo data… (300k rows, 1–2 minutes)', ja: 'デモデータを作成中… (30 万件、1〜2 分)', zh: '正在创建演示数据…（30 万行，1–2 分钟）' },
   'sqls.loadDemo': { ko: '샘플 예제', en: 'Samples', ja: 'サンプル', zh: '示例' },
   'sqls.loadDemoTip': { ko: '튜닝 효과를 확인할 수 있는 예제 SQL 을 목록에 넣습니다', en: 'Add example SQLs that demonstrate real tuning gains', ja: 'チューニング効果を確認できる例題 SQL を追加します', zh: '添加可验证调优效果的示例 SQL' },
-  'sqls.demoInstalled': { ko: '샘플 예제 {n}건을 넣었습니다. "데모" 폴더를 확인하세요.', en: 'Added {n} sample SQLs. See the "데모" folder.', ja: 'サンプル {n} 件を追加しました。「데모」フォルダをご確認ください。', zh: '已添加 {n} 个示例。请查看"데모"文件夹。' },
-  'sqls.demoConfirm': { ko: '튜닝 효과를 확인할 수 있는 샘플 예제를 목록에 넣습니다.\n\n먼저 "① 데모 데이터 만들기" 를 실행해 시험용 표(30만 건)를 만들어야 효과를 볼 수 있습니다.\n진행할까요?', en: 'Add sample SQLs that demonstrate tuning gains.\n\nRun "① 데모 데이터 만들기" first to create the 300k-row test tables.\nProceed?', ja: 'チューニング効果を確認できるサンプルを追加します。\n\nまず「① 데모 데이터 만들기」を実行して 30 万件の試験表を作成してください。\n進めますか?', zh: '添加可验证调优效果的示例 SQL。\n\n请先执行"① 데모 데이터 만들기"创建 30 万行测试表。\n是否继续？' },
+  // 데모 예제가 담기는 폴더 이름. 설치할 때 이 이름이 태그로 저장된다(server/demo-install.js DEMO_FOLDER 와 같은 값이어야 한다).
+  'sqls.demoFolder': { ko: '데모', en: 'Demo', ja: 'デモ', zh: '演示' },
+  'sqls.demoInstalled': { ko: '샘플 예제 {n}건을 넣었습니다. "{folder}" 폴더를 확인하세요.', en: 'Added {n} sample SQLs. See the "{folder}" folder.', ja: 'サンプル {n} 件を追加しました。「{folder}」フォルダをご確認ください。', zh: '已添加 {n} 个示例。请查看"{folder}"文件夹。' },
+  'sqls.demoConfirm': { ko: '튜닝 효과를 확인할 수 있는 샘플 예제를 목록에 넣습니다.\n\n먼저 "데모 1) 데이터 한번에 만들기" 를 실행해 시험용 표(30만 건)를 만들어야 효과를 볼 수 있습니다.\n진행할까요?', en: 'Add sample SQLs that demonstrate tuning gains.\n\nRun "Demo 1) Create all data at once" first to create the 300k-row test tables.\nProceed?', ja: 'チューニング効果を確認できるサンプルを追加します。\n\nまず「デモ 1) データを一括作成」を実行して 30 万件の試験表を作成してください。\n進めますか?', zh: '添加可验证调优效果的示例 SQL。\n\n请先执行"演示 1) 一次性创建数据"创建 30 万行测试表。\n是否继续？' },
   'sqls.shared': { ko: '공용', en: 'Shared', ja: '共用', zh: '公用' },
   'sqls.sharedTip': { ko: '공용 SQL — 모든 접속에서 보입니다', en: 'Shared SQL — visible in every connection', ja: '共用 SQL — すべての接続で表示', zh: '公用 SQL — 所有连接均可见' },
   'wb.emptyAfter': { ko: '(비어 있음 — 튜닝안을 여기에 작성하세요)', en: '(empty — write your tuned SQL here)', ja: '(空 — チューニング案をここに)', zh: '(空 — 在此编写调优方案)' },

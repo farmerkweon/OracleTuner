@@ -99,6 +99,8 @@ function selectTable(owner, name) {
   state.table = name;
   state.cache = {};
   $('#schema-detail-title').innerHTML = `<b>${esc(state.owner)}.${esc(name)}</b>`;
+  const cnt = $('#sc-count-msg');
+  if (cnt) cnt.textContent = ''; // 다른 표를 고르면 이전 표의 실측값은 지운다(D14)
   loadDetail();
 }
 
@@ -205,6 +207,13 @@ async function generateSelect() {
   }
 }
 
+/** 행수 실측 결과를 토스트 + 인라인(#sc-count-msg) 양쪽에 남긴다(D14). */
+function say(text, kind = 'ok') {
+  const box = $('#sc-count-msg');
+  if (box) box.textContent = text;
+  toast(text, kind, 6000);
+}
+
 /** 통계를 못 볼 때를 위한 실제 행수 실측. 비용이 크므로 확인을 받는다. */
 async function countRows() {
   if (!state.table) return toast(t('sc.pickTable'), 'warn');
@@ -213,13 +222,15 @@ async function countRows() {
   await withBusy(btn, async () => {
     try {
       const r = await api.estimateRows({ owner: state.owner, table: state.table, timeoutSec: 300 });
+      // D14(QA-SWEEP): 토스트만 띄우면 6초 뒤 사라지고 화면에는 옵티마이저 추정치만 남아,
+      // "추정치 말고 실측을 보려고" 누른 사용자가 결과를 못 찾는다. 인라인으로도 남긴다.
       if (r.ok) {
-        toast(t('sc.countResult', { table: state.table, rows: fmtNum(r.rows), ms: Math.round(r.elapsedMs) }), 'ok', 6000);
+        say(t('sc.countResult', { table: state.table, rows: fmtNum(r.rows), ms: Math.round(r.elapsedMs) }), 'ok');
       } else {
-        toast(t('sc.countFailed', { err: r.error }), 'err', 6000);
+        say(t('sc.countFailed', { err: r.error }), 'err');
       }
     } catch (e) {
-      toast(errText(e), 'err');
+      say(errText(e), 'err');
     }
   }, t('sc.counting'));
 }

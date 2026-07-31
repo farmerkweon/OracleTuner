@@ -97,12 +97,22 @@ async function restartBridge() {
   await withBusy(btn, async () => {
     try {
       await api.restartBridge();
-      toast(t('se.restartedOk'), 'ok');
+      say(t('se.restartedOk'), 'ok');
       refresh();
     } catch (e) {
-      toast(errText(e), 'err', 8000);
+      say(errText(e), 'err', 8000);
     }
   }, t('se.restarting'));
+}
+
+/**
+ * D11(QA-SWEEP): [브리지 재기동]·[드라이버 재탐색] 은 토스트만 띄웠는데, 토스트는 3.6초 뒤 사라지고
+ * 화면에는 아무 흔적도 남지 않아 "눌렀는지 아닌지 알 수 없다" 는 보고가 나왔다. 바로 아래
+ * [설정 저장] 처럼 인라인(#settings-msg)에도 남겨 결과가 화면에 머물게 한다.
+ */
+function say(text, kind = 'ok', ms) {
+  $('#settings-msg').textContent = text;
+  toast(text, kind, ms);
 }
 
 async function rebuildBridge() {
@@ -110,11 +120,11 @@ async function rebuildBridge() {
   await withBusy(btn, async () => {
     try {
       const r = await api.buildBridge(true);
-      toast(`${r.ok ? t('se.buildOk') : t('se.buildFail')}: ${r.message}`, r.ok ? 'ok' : 'err', 8000);
+      say(`${r.ok ? t('se.buildOk') : t('se.buildFail')}: ${r.message}`, r.ok ? 'ok' : 'err', 8000);
       if (r.output) console.log(r.output);
       refresh();
     } catch (e) {
-      toast(errText(e), 'err', 8000);
+      say(errText(e), 'err', 8000);
     }
   }, t('se.building'));
 }
@@ -123,9 +133,9 @@ async function rescanDrivers() {
   try {
     const r = await api.rescanDrivers();
     renderDrivers(r.jars || []);
-    toast(t('se.driversFound', { n: r.jars.filter((j) => j.exists).length }), 'ok');
+    say(t('se.driversFound', { n: r.jars.filter((j) => j.exists).length }), 'ok');
   } catch (e) {
-    toast(errText(e), 'err');
+    say(errText(e), 'err');
   }
 }
 

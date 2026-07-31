@@ -127,6 +127,35 @@ function defaults() {
   return JSON.parse(JSON.stringify(DEFAULTS));
 }
 
+/**
+ * settings.json 이 없으면 기본값 그대로 만들어 둔다(있으면 손대지 않는다 — 멱등).
+ *
+ * ★ 왜 필요한가 (D-03, 2026-07-31 QA-PORTABLE)
+ *   포터블을 풀면 `config\` 에는 `.gitkeep` 뿐이고 앱은 settings.json 을 만들지 않았다.
+ *   그런데 포트 충돌 안내는 "config\settings.json 의 server.port 를 바꾸세요" 라고 했다.
+ *   **없는 파일을 고치라는 안내**였다. 안내가 가리키는 파일은 반드시 존재해야 한다.
+ *
+ *   기본값 그대로 쓰므로 동작은 달라지지 않는다. 포트도 기본값(7070)으로 적히는데,
+ *   이 값은 index.js 의 "사용자가 고른 포트인가" 판정에서 기본값으로 취급되므로
+ *   자동 폴백을 막지 않는다(자세한 근거는 index.js resolvePort 주석).
+ *
+ * @returns {{created: boolean, file: string}}
+ */
+function ensureSettingsFile() {
+  try {
+    if (fs.existsSync(P.settingsFile)) return { created: false, file: P.settingsFile };
+    P.ensureDirs();
+    const tmp = P.settingsFile + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(DEFAULTS, null, 2) + '\n', 'utf8');
+    fs.renameSync(tmp, P.settingsFile);
+    cache = null;
+    return { created: true, file: P.settingsFile };
+  } catch (e) {
+    // 설정 파일을 못 만든다고 프로그램이 안 뜨면 안 된다(읽기 전용 위치 등).
+    return { created: false, file: P.settingsFile, error: e.message };
+  }
+}
+
 // ── 자바 경로 해석 ──────────────────────────────────────────────────────────
 
 function binIn(home, name) {
@@ -154,6 +183,20 @@ function resolveJava(cfg) {
   const c = cfg || load();
   const candidates = [];
   if (c.java && c.java.home) candidates.push({ home: c.java.home, source: 'settings.java.home' });
+
+  // ★ 동봉 JRE 를 JAVA_HOME·PATH 보다 **먼저** 본다 (2026-07-31 실사용 결함 D-02).
+  //   "JRE 포함판"은 Java 가 없는 PC 를 위해 만든 물건인데, resolveJava 가
+  //   settings → JAVA_HOME → PATH 만 보느라 <앱루트>\runtime\jre 를 못 찾았다.
+  //   JAVA_HOME 을 넣어주는 곳은 OracleTuner.bat 한 곳뿐이었고,
+  //   바로가기가 가리키는 트레이 런처(OracleTuner.exe)는 환경변수를 손대지 않는다.
+  //   ⇒ 설치판·포터블 모두, 권장 실행 경로에서 동봉 JRE 가 무시됐다.
+  //     ("따로 설치할 필요 없습니다"라는 README 가 사실이 아니게 된다.)
+  //   런처가 무엇이든 앱 스스로 찾게 하는 것이 옳다. 그래서 여기서 해결한다.
+  //   순서: 사용자가 명시한 설정 > 동봉 JRE > 시스템(JAVA_HOME/PATH).
+  //   동봉본을 시스템보다 앞에 두는 이유 — 포함판을 받은 사용자는 그 JRE 로 도는 것을 기대한다.
+  const bundled = path.join(P.root, 'runtime', 'jre');
+  if (binIn(bundled, 'java')) candidates.push({ home: bundled, source: '동봉 JRE(runtime/jre)' });
+
   if (process.env.JAVA_HOME) candidates.push({ home: process.env.JAVA_HOME, source: 'JAVA_HOME' });
 
   for (const cand of candidates) {
@@ -201,6 +244,10 @@ function discoverJavaHomes() {
     seen.add(norm.toLowerCase());
     found.push({ home: norm, source, hasJavac: !!binIn(norm, 'javac'), version: javaVersion(binIn(norm, 'java')) });
   };
+
+  // 동봉 JRE 를 목록 맨 앞에 둔다 — 설정 화면의 "발견된 JDK/JRE" 후보에도 떠야
+  // 사용자가 직접 고를 수 있다(D-02 에서 후보에조차 안 나타나 회피할 방법이 없었다).
+  add(path.join(P.root, 'runtime', 'jre'), '동봉 JRE(runtime/jre)');
 
   if (process.env.JAVA_HOME) add(process.env.JAVA_HOME, 'JAVA_HOME');
   const j = fromPath('java');
@@ -336,7 +383,7 @@ function diagnose() {
 
 module.exports = {
   readJsonFile,
-  load, save, defaults, DEFAULTS,
+  load, save, defaults, DEFAULTS, ensureSettingsFile,
   resolveJava, discoverJavaHomes,
   resolveDriverJars, discoverDriverJars, driverClasspath,
   diagnose, deepMerge

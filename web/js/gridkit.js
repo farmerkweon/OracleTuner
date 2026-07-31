@@ -9,6 +9,10 @@ import { OpenGrid } from '/vendor/open-grid/open-grid.js';
 import { esc, safeHtml, fmtBig } from './util.js';
 import { t } from './i18n.js';
 import { icon } from './icons.js';
+import { registerGridLocales } from './grid-locales.js';
+
+// 그리드를 하나라도 만들기 전에 ja·zh 로케일을 등록해 둔다(D07).
+registerGridLocales();
 
 const registry = new Set();
 let currentTheme = 'default';
@@ -184,12 +188,14 @@ export function renderPlan(host, plan) {
     rowNumber: false,
     masterDetail: {
       enabled: true,
-      // 라이브러리가 heightMode:'auto' 를 무시하고 이 값을 고정 높이로 쓴다.
       // 170 은 접근/필터 술어가 두어 줄만 되어도 잘려서, 좁은 창 안에서 휠을 굴려야 했다.
       // 그 불편이 "휠로 끝까지 못 본다"는 보고의 실제 원인이었다. 대부분의 계획 상세가
       // 한눈에 들어오도록 키운다. 그래도 넘치면 확대 팝업(우측 상단 버튼)으로 본다.
       height: 260,
-      heightMode: 'auto',
+      // D19(QA-SWEEP): heightMode:'auto' 는 라이브러리가 어차피 무시하고 'fixed' 로 동작하는데,
+      // 그때마다 내부 설계문서 번호가 박힌 미공개 기능 경고를 사용자 콘솔에 찍었다.
+      // 동작이 같으므로 처음부터 'fixed' 를 준다.
+      heightMode: 'fixed',
       expandMultiple: true,
       renderer: (row, hostEl) => {
         const draw = (target) => { target.innerHTML = planDetailHtml(row); };
@@ -258,7 +264,7 @@ export function renderFindings(host, findings, onFix) {
       enabled: true,
       // 진단 상세도 같은 이유로 키운다(위 renderPlan 주석 참조).
       height: 280,
-      heightMode: 'auto',
+      heightMode: 'fixed', // D19 — 위와 같은 이유
       expandMultiple: true,
       renderer: (row, hostEl) => {
         const draw = (target) => {

@@ -58,9 +58,12 @@ function initShell() {
   const langSel = $('#sel-lang');
   langSel.value = initLang();
   applyDom();
-  applyIcons(); // Open Grid 아이콘을 data-icon 요소에 채운다
   applyProjectLinks(); // 푸터 등의 저장소/라이선스 링크를 실제 주소로
   setLang(langSel.value); // 그리드 로케일까지 맞춘다
+  // applyIcons 는 반드시 setLang(→applyDom) 뒤에 부른다. applyDom 이 data-i18n 요소의 textContent 를
+  // 다시 쓰면서 .ic(아이콘) 을 지워 버리기 때문이다. 순서가 반대라 첫 화면에는 아이콘이 없다가
+  // 언어를 한 번 바꾸면(64행) 비로소 나타나는 불일치가 있었다.
+  applyIcons(); // Open Grid 아이콘을 data-icon 요소에 채운다
   langSel.addEventListener('change', () => { setLang(langSel.value); applyIcons(); });
 
   // manifest 는 한 파일에 다국어를 담을 수 없어 언어별로 4벌을 두고, 언어가 바뀔 때마다 링크를 바꿔 끼운다

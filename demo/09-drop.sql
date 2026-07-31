@@ -1,6 +1,12 @@
 --@ name: 데모 9) 정리 (DROP)
+--@ name.en: Demo 9) Clean up (DROP)
+--@ name.ja: デモ 9) 後片付け (DROP)
+--@ name.zh: 演示 9) 清理 (DROP)
 --@ tags: 데모
 --@ desc: 데모용 표를 지웁니다. 다시 만들기 전에도 이걸 먼저 실행하세요.
+--@ desc.en: Drops the demo tables. Run this first before creating them again.
+--@ desc.ja: デモ用の表を削除します。作り直す前にもこれを先に実行してください。
+--@ desc.zh: 删除演示用的表。重新创建之前也请先执行此项。
 
 /* Oracle Tuner 데모 — 정리
  *

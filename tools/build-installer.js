@@ -32,8 +32,9 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const P = require('../server/paths');
 const portable = require('./build-portable');
+const tray = require('./build-tray');
 
-const VERSION = require('../package.json').version + '-beta.3';
+const VERSION = require('../package.json').version + '-beta.4';
 const DIST = path.join(P.root, 'dist');
 
 /** 스테이징에 그대로 복사하는 "app" 항목(패치 설치파일이 나중에 교체할 부분과 정확히 일치). */
@@ -79,6 +80,11 @@ function stage(withJre) {
 
   // installer/ 는 스테이징에 넣지 않는다. 위저드 UI(언어 선택·라이선스·경로·포트)는
   // 이제 Inno 가 담당하고, 실행 런처(OracleTuner.vbs)는 .iss 가 직접 가져다 넣는다.
+
+  // 트레이 런처(OracleTuner.exe) — 바로가기가 가리키는 실제 실행 파일이다.
+  // 실패하면 예외가 올라와 빌드가 선다. 트레이 없는 설치판은 "실행 수단이 없는 설치판"이라
+  // 조용히 넘기면 안 된다(tools/build-tray.js 머리말 참조).
+  tray.buildTray(stageDir);
 
   // node/JRE 번들 — tools/build-portable.js 의 로직을 그대로 재사용한다(중복 구현 금지).
   const nodeExe = portable.copyNode(stageDir);

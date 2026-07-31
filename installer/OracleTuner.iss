@@ -26,14 +26,22 @@
 ;   그때만 UAC 승격을 선택할 수 있다(PrivilegesRequiredOverridesAllowed=dialog).
 
 #define AppName        "Oracle Tuner"
-#define AppVersion     "1.0.0-beta.3"
+#define AppVersion     "1.0.0-beta.4"
 #define AppPublisher   "foxnail.kr"
 #define AppURL         "https://foxnail.kr"
-#define AppLauncher    "OracleTuner.vbs"
+
+; ★ 런처가 .vbs 에서 트레이 앱(.exe)으로 바뀌었다 (beta.4).
+;   이유(2026-07-31 발주자 실사용 보고): .vbs 는 node 를 창 숨김으로 띄우고 사라져서
+;     ① 사용자가 앱이 떠 있는지 알 수 없고 ② 끌 방법이 없고
+;     ③ 그래서 제거/재설치 때 node 가 파일을 잡아 삭제가 실패했다(실제 발생).
+;   트레이 앱은 아이콘으로 상태를 보여주고, 시작/정지/종료 메뉴를 제공하며,
+;   Job Object 로 손자(java) 프로세스까지 확실히 정리한다.
+;   소스: installer\tray\OracleTunerTray.cs / 빌드: tools\build-tray.js
+#define AppLauncher    "OracleTuner.exe"
 
 ; 스테이징 폴더 — build-installer.js 가 /DSrcDir 로 넘겨준다. 수동 빌드용 기본값.
 #ifndef SrcDir
-  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.3-installer-win-x64-no-jre"
+  #define SrcDir "..\dist\oracle-tuner-1.0.0-beta.4-installer-win-x64-no-jre"
 #endif
 
 ; 결과 파일 이름에 붙는 꼬리표. Java 내장 빌드는 "-with-jre" 를 넘겨받아
@@ -130,19 +138,31 @@ Source: "{#SrcDir}\package.json";   DestDir: "{app}";              Flags: ignore
 Source: "{#SrcDir}\LICENSE";        DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 ; 런타임 — 거의 바뀌지 않는다. 내장 JRE 는 with-jre 빌드에만 들어 있다.
 Source: "{#SrcDir}\runtime\*";      DestDir: "{app}\runtime";      Flags: ignoreversion recursesubdirs createallsubdirs
-; 실행 런처(콘솔 창을 숨기고 node 를 띄운다)
+; ★ 트레이 런처 — 바로가기가 가리키는 실제 실행 파일.
+;   tools\build-tray.js 가 csc.exe 로 컴파일해 스테이징에 넣는다(그래서 {#SrcDir} 에서 가져온다).
+Source: "{#SrcDir}\OracleTuner.exe"; DestDir: "{app}";             Flags: ignoreversion
+
+; 기존 VBS 런처 — **남긴다.** 바로가기는 더 이상 이걸 가리키지 않는다.
+;   왜 남기는가: 트레이 앱이 뜨지 않는 환경(.NET Framework 가 꺼져 있는 특수 VDI 이미지 등)에서
+;   "서버만이라도 띄워 보는" 최후의 수단이 필요하다. 진단할 때 실제로 쓴다.
+;   ⚠ 이걸로 띄우면 끄는 수단이 없다(오늘의 사고 경로). 정상 경로는 OracleTuner.exe 다.
 Source: "OracleTuner.vbs";          DestDir: "{app}";              Flags: ignoreversion
-; 바로가기가 쓸 아이콘. 런처가 .vbs 라서 이 파일이 없으면 기본 스크립트 아이콘이 나온다.
+; 트레이 아이콘이 읽는 아이콘 파일. exe 안에도 같은 아이콘이 박혀 있지만(/win32icon),
+; 트레이는 작은 크기 아이콘을 파일에서 직접 고르는 편이 선명하다.
 Source: "OracleTuner.ico";          DestDir: "{app}";              Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}";       Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"; IconFilename: "{app}\OracleTuner.ico"
+; IconFilename 을 지정하지 않는다 — 아이콘이 exe 자체에 박혀 있어(/win32icon) 그대로 나온다.
+; (런처가 .vbs 였을 때는 지정이 필수였다. 안 하면 윈도우 기본 '두루마리' 아이콘이 나왔다.)
+Name: "{group}\{#AppName}";       Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"; IconFilename: "{app}\OracleTuner.ico"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppLauncher}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
+; shellexec 를 뺐다 — 진짜 exe 이므로 Inno 가 직접 실행하면 된다.
+; (.vbs 였을 때는 셸을 거쳐야 wscript 로 열렸다.)
 Filename: "{app}\{#AppLauncher}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
-    Flags: nowait postinstall skipifsilent shellexec
+    Flags: nowait postinstall skipifsilent
 
 [Code]
 { ── 포트 선택 페이지 ──────────────────────────────────────────────────────
@@ -156,6 +176,114 @@ Filename: "{app}\{#AppLauncher}"; Description: "{cm:LaunchProgram,{#AppName}}"; 
 
 var
   PortPage: TInputQueryWizardPage;
+
+{ ── 실행 중인 앱 정지 ──────────────────────────────────────────────────────
+  ★ 2026-07-31 실사용 사고의 직접 대응이다.
+
+  증상: 앱을 제거하려는데 node.exe 가 설치 폴더의 파일을 잡고 있어 삭제가 실패했다.
+        사용자는 앱이 떠 있다는 사실조차 몰랐다(기존 .vbs 런처는 화면에 아무 표시가 없었다).
+
+  대응은 3단계다. 앞 단계가 실패해도 다음 단계가 받아낸다.
+    ① OracleTuner.exe --quit  — 트레이에 정상 종료를 요청한다.
+       트레이가 node 를 정리하고(Job Object 로 손자 java 까지) 스스로 종료한다.
+    ② taskkill /F /IM OracleTuner.exe — ①이 안 먹었을 때 트레이를 강제 종료한다.
+       ⚠ 이것만으로도 node·java 가 함께 죽는다. 트레이가 죽으면 Job Object 핸들이 닫히고,
+         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE 때문에 커널이 job 안 프로세스를 전부 정리한다.
+    ③ 설치 폴더 아래에서 도는 node/java 를 경로로 골라 종료한다.
+       ①②로 잡히지 않는 경우가 하나 있다: 사용자가 (진단용으로 남겨둔) OracleTuner.vbs 나
+       OracleTuner.bat 로 서버를 직접 띄운 경우다. 그때는 트레이가 없어 job 도 없다.
+       ⚠ 이름만 보고 죽이지 않는다("node.exe 전부 종료"는 남의 개발 서버를 죽인다).
+         반드시 **설치 폴더 아래 경로**인 것만 고른다.
+
+  ③은 PowerShell 에 의존한다. PowerShell 이 막힌 환경에서는 조용히 실패하는데,
+  그래도 ①②가 정상 경로를 이미 덮으므로 치명적이지 않다. 실패해도 설치/제거는 계속한다. }
+{ 파일 잠금이 실제로 풀렸는지 확인한다.
+
+  ★ 2026-07-31 실측으로 밝혀진 함정이다. 프로세스를 죽여도 그 실행 이미지 파일의 핸들은
+    곧바로 풀리지 않는다(커널의 섹션 오브젝트가 남고, 백신 실시간 검사가 한 번 더 물기도 한다).
+    그 상태에서 지우면 DeleteFile 은 **성공을 반환하지만** 파일은 '삭제 대기' 로 남아 있어
+    디렉터리에서 아직 보인다. 그래서 이어지는 RemoveDirectory 가 "비어 있지 않음"으로 실패한다.
+    결과: 파일은 다 사라졌는데 **빈 폴더만 남는다.** 첫 제거 시험에서 정확히 이 증상이 났다
+    (C:\APPS\Oracle Tuner\runtime 만 빈 채로 남음).
+
+  이름 바꾸기가 성공하면 잠금이 풀린 것이다(잠긴 실행 파일은 이름을 바꿀 수 없다).
+  확인만 하고 원래 이름으로 되돌린다 — 지우는 일은 Inno 가 자기 목록대로 한다. }
+function WaitFileUnlocked(FileName: string; TimeoutMs: Integer): Boolean;
+var
+  Tmp: string;
+  Waited: Integer;
+begin
+  Result := True;
+  if not FileExists(FileName) then
+    exit;
+  Tmp := FileName + '.unlocktest';
+  Waited := 0;
+  while Waited < TimeoutMs do
+  begin
+    if RenameFile(FileName, Tmp) then
+    begin
+      RenameFile(Tmp, FileName);
+      exit;
+    end;
+    Sleep(300);
+    Waited := Waited + 300;
+  end;
+  Result := False;
+end;
+
+procedure StopRunningApp(AppPath: string);
+var
+  ResultCode: Integer;
+  Exe, PsArgs: string;
+begin
+  Exe := AddBackslash(AppPath) + 'OracleTuner.exe';
+
+  { ① 정상 종료 요청 — 트레이가 스스로 정리할 기회를 준다. }
+  if FileExists(Exe) then
+    Exec(Exe, '--quit', AppPath, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  { ② 강제 종료(트레이 이름은 우리 것이므로 이름으로 죽여도 안전하다). }
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM OracleTuner.exe', '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  { ③ 설치 폴더 아래에서 도는 node/java 잔재 정리(.vbs/.bat 로 띄운 경우). }
+  PsArgs := '-NoProfile -ExecutionPolicy Bypass -Command "' +
+            'Get-Process node,java -ErrorAction SilentlyContinue | ' +
+            'Where-Object { $_.Path -ne $null -and $_.Path -like ''' + AddBackslash(AppPath) + '*'' } | ' +
+            'Stop-Process -Force -ErrorAction SilentlyContinue"';
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), PsArgs, '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  { ★ 핵심 — 그냥 Sleep 으로 때우지 않는다. 실행 이미지가 정말 풀렸는지 확인될 때까지 기다린다.
+    처음에는 Sleep(1500) 만 뒀는데, 그것으로는 부족해 빈 runtime 폴더가 남았다(위 주석 참조).
+    node.exe 와 트레이 exe 둘 다 확인한다. 시간이 다 되면 그냥 진행한다 —
+    여기서 제거를 중단시키면 사용자는 지울 방법이 아예 없어진다. 남은 것은 아래
+    UninstallDelete 섹션의 filesandordirs 가 한 번 더 받아낸다.
+    ⚠ 주석 줄을 대괄호로 시작하지 말 것 — Inno 는 줄 첫 글자가 '[' 이면 Pascal 주석
+      안이라도 섹션 태그로 읽어 "Invalid section tag" 로 컴파일이 깨진다(실제로 겪었다). }
+  if not WaitFileUnlocked(AddBackslash(AppPath) + 'runtime\node.exe', 15000) then
+    Log('WARN: runtime\node.exe 잠금이 15초 안에 풀리지 않았습니다.');
+  if not WaitFileUnlocked(Exe, 10000) then
+    Log('WARN: OracleTuner.exe 잠금이 10초 안에 풀리지 않았습니다.');
+end;
+
+{ 재설치(덮어쓰기) 대응 — 파일을 복사하기 직전에 실행 중인 것을 정지시킨다.
+  이걸 안 하면 "사용 중인 파일" 오류가 나거나, 재부팅 후 교체로 미뤄져
+  사용자는 새 버전을 설치했는데 옛 버전이 도는 상태를 만난다. }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  NeedsRestart := False;
+  StopRunningApp(ExpandConstant('{app}'));
+  Result := '';
+end;
+
+{ 제거 대응 — ★ 오늘 실패했던 바로 그 시나리오다.
+  파일을 지우기 전에 반드시 정지시킨다. }
+function InitializeUninstall(): Boolean;
+begin
+  StopRunningApp(ExpandConstant('{app}'));
+  Result := True;
+end;
 
 procedure InitializeWizard;
 begin
@@ -222,3 +350,12 @@ end;
 ; 접속정보·튜닝이력·SQLite DB 가 들어 있어 지우면 되돌릴 수 없다.
 ; 재설치하면 그대로 이어서 쓸 수 있다.
 Type: files; Name: "{app}\version.json"
+
+; ★ 설치 폴더 자체를 통째로 정리한다(보험).
+;   왜 필요한가: Inno 는 자기가 설치한 파일만 지우고, 디렉터리는 **비어 있을 때만** 지운다.
+;   위 WaitFileUnlocked 로 잠금 문제는 막았지만, 그것만으로 부족한 경우가 남는다:
+;     · 앱이 실행 중에 만든 파일(로그·캐시 등)이 설치 폴더에 있으면 폴더가 안 지워진다
+;     · 백신이 파일을 격리/복원하는 중이면 타이밍이 어긋난다
+;   발주자 합격 기준이 "폴더가 남지 않음" 이므로 확실한 쪽을 택한다.
+;   ⚠ 사용자 데이터는 여기 없다({localappdata}\OracleTuner 에 있다). 그래서 안전하다.
+Type: filesandordirs; Name: "{app}"

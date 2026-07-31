@@ -18,8 +18,9 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const P = require('../server/paths');
+const tray = require('./build-tray');
 
-const VERSION = require('../package.json').version + '-beta.3';
+const VERSION = require('../package.json').version + '-beta.4';
 const DIST = path.join(P.root, 'dist');
 
 /** 배포본에 포함할 항목 (src → 배포본 내 경로) */
@@ -156,8 +157,20 @@ function writeReadme(stage, withJre) {
 실행 방법
 ---------
 1) 압축을 원하는 폴더에 풉니다 (경로에 한글/공백이 있어도 됩니다)
-2) OracleTuner.bat 를 더블클릭
+2) OracleTuner.exe 를 더블클릭  (트레이 런처 — 권장)
 3) 브라우저가 자동으로 http://127.0.0.1:7070 을 엽니다
+
+트레이 아이콘 (작업표시줄 오른쪽 아래)
+--------------------------------------
+실행하면 트레이에 아이콘이 남습니다. 아이콘을 오른쪽 클릭하면
+  열기 / 시작 / 정지 / 종료
+를 쓸 수 있습니다. 더블클릭하면 브라우저가 열립니다.
+
+★ 반드시 [종료] 로 끄세요. 그래야 서버(node)와 Java 프로세스까지 함께 정리됩니다.
+  창만 닫으면 백그라운드 프로세스가 남아 폴더 삭제가 실패할 수 있습니다.
+
+OracleTuner.bat 도 그대로 들어 있습니다. 실행 로그를 콘솔로 직접 보며
+문제를 진단해야 할 때 쓰세요(트레이 없이 서버만 뜹니다).
 
 필요한 것
 ---------
@@ -234,6 +247,13 @@ function build(withJre) {
     if (!jre) { console.log('  → JRE 포함판 생성 취소'); rmrf(stage); return null; }
     console.log('  내장 JRE 생성 완료');
   }
+
+  // 트레이 런처. 포터블에도 넣는다 — .bat 로 띄우면 검은 창이 남고 끄는 방법이
+  // "창 닫기" 뿐이라 손자(java)가 남는다. 포터블 사용자도 트레이로 확실히 끌 수 있어야 한다.
+  // (.bat 는 그대로 남긴다. 콘솔 로그를 보며 진단해야 할 때가 있기 때문이다.)
+  tray.buildTray(stage);
+  const icoSrc = path.join(P.root, 'installer', 'OracleTuner.ico');
+  if (fs.existsSync(icoSrc)) fs.cpSync(icoSrc, path.join(stage, 'OracleTuner.ico'));
 
   writeLaunchers(stage, nodeExe, withJre);
   writeReadme(stage, withJre);
